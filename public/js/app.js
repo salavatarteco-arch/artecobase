@@ -514,7 +514,9 @@ function openCategoryCreate() {
   document.getElementById('cat-pricing-mode').value = 'sheet';
   document.getElementById('cat-unit').value = 'м²';
   document.querySelector('#category-modal .modal-header h2').textContent = 'Новая категория';
+  document.getElementById('btn-save-category').textContent = 'Создать';
   document.getElementById('btn-save-category').onclick = saveNewCategory;
+  document.getElementById('btn-delete-category').hidden = true;
   openModal('category-modal');
 }
 
@@ -525,11 +527,29 @@ function openCategoryEdit(id) {
   document.getElementById('cat-pricing-mode').value = cat.pricingMode;
   document.getElementById('cat-unit').value = cat.unit;
   document.querySelector('#category-modal .modal-header h2').textContent = 'Категория';
+  document.getElementById('btn-save-category').textContent = 'Сохранить';
   document.getElementById('btn-save-category').onclick = async () => {
     await api.put(`/api/categories/${id}`, readCategoryForm());
     closeModal('category-modal');
     await loadAll();
     toast('Категория обновлена');
+  };
+  const delBtn = document.getElementById('btn-delete-category');
+  delBtn.hidden = false;
+  delBtn.onclick = async () => {
+    const count = state.categories.length;
+    if (count <= 1) { toast('Должна остаться хотя бы одна категория', 'error'); return; }
+    const itemsInCat = await api.get(`/api/items?categoryId=${id}`);
+    const warn = itemsInCat.length
+      ? `В категории «${cat.name}» ${itemsInCat.length} позиций — они тоже будут удалены. Продолжить?`
+      : `Удалить категорию «${cat.name}»?`;
+    if (!confirm(warn)) return;
+    for (const it of itemsInCat) await api.del(`/api/items/${it.id}`);
+    await api.del(`/api/categories/${id}`);
+    closeModal('category-modal');
+    if (state.currentCategoryId === id) state.currentCategoryId = null;
+    await loadAll();
+    toast('Категория удалена');
   };
   openModal('category-modal');
 }

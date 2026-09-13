@@ -22,7 +22,9 @@ function createApp() {
   app.use((err, req, res, next) => {
     console.error('[error]', req.method, req.path, err);
     if (res.headersSent) return next(err);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера. Попробуйте ещё раз.' });
+    // TODO(temp-debug): временно показываем реальный текст ошибки в ответе,
+    // чтобы разобрать баг с обновлением цены в проде. Убрать после починки.
+    res.status(500).json({ error: 'Внутренняя ошибка сервера. Попробуйте ещё раз.', debug: { message: err.message, name: err.name, stack: String(err.stack).split('\n').slice(0, 6) } });
   });
 
   return app;
