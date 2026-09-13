@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>АРТЕКО — Прайс-лист</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+<div id="app" class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0 L14.2 9.8 L24 12 L14.2 14.2 L12 24 L9.8 14.2 L0 12 L9.8 9.8 Z"/></svg>
+      <div class="brand-text">
+        <strong>Прайс-лист</strong>
+        <span>АРТЕКО · Тбилиси</span>
+      </div>
+    </div>
+
+    <button class="btn btn-block" id="btn-add-category"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4V20"/><path d="M4 12H20"/></svg> Категория</button>
+
+    <nav class="category-list" id="category-list"><!-- rendered by JS --></nav>
+
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost btn-block" id="btn-open-settings"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7H20"/><circle cx="9" cy="7" r="2"/><path d="M4 17H20"/><circle cx="15" cy="17" r="2"/></svg> Настройки</button>
+      <button class="btn btn-ghost btn-block" id="btn-open-activity"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7V12L15.5 14"/></svg> Журнал обновлений</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 id="category-title">Загрузка…</h1>
+        <span class="muted" id="category-meta"></span>
+      </div>
+      <div class="topbar-right">
+        <div class="search-wrap">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20 15.5 15.5"/></svg>
+          <input type="search" id="search-input" class="search-input" placeholder="Поиск по названию, артикулу…" />
+        </div>
+        <button class="btn btn-primary" id="btn-bulk-parse" title="Обновить цены по всем ссылкам в этой категории"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg> Обновить цены</button>
+        <button class="btn btn-accent" id="btn-export"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3V15"/><path d="M7 10 12 15 17 10"/><path d="M4 19H20"/></svg> Экспорт в Excel</button>
+        <label class="btn btn-ghost file-btn">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7 8 12 3 17 8"/><path d="M4 19H20"/></svg> Импорт
+          <input type="file" id="import-input" accept=".xlsx" hidden />
+        </label>
+        <button class="btn btn-primary" id="btn-add-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4V20"/><path d="M4 12H20"/></svg> Позиция</button>
+      </div>
+    </header>
+
+    <div class="stat-strip" id="stat-strip"><!-- rendered by JS --></div>
+
+    <div class="table-scroll">
+      <table class="price-table" id="price-table">
+        <thead id="table-head"></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+      <div class="empty-state" id="empty-state" hidden>
+        <p>В этой категории пока нет позиций.</p>
+        <button class="btn btn-primary" id="btn-add-item-empty">+ Добавить первую позицию</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Item edit modal -->
+<div class="modal-backdrop" id="item-modal-backdrop" hidden>
+  <div class="modal" id="item-modal">
+    <div class="modal-header">
+      <h2 id="item-modal-title">Позиция</h2>
+      <button class="modal-close" data-close-modal="item-modal"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body" id="item-modal-body"><!-- rendered by JS --></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete-item" hidden>Удалить</button>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" data-close-modal="item-modal">Отмена</button>
+      <button class="btn btn-primary" id="btn-save-item">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category modal -->
+<div class="modal-backdrop" id="category-modal-backdrop" hidden>
+  <div class="modal modal-sm" id="category-modal">
+    <div class="modal-header">
+      <h2>Новая категория</h2>
+      <button class="modal-close" data-close-modal="category-modal"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <label class="field">
+        <span>Название</span>
+        <input type="text" id="cat-name" placeholder="Например: Ручки мебельные" />
+      </label>
+      <label class="field">
+        <span>Тип ценообразования</span>
+        <select id="cat-pricing-mode">
+          <option value="sheet">Плитный материал (цена листа → м²)</option>
+          <option value="direct">Штучная позиция (себестоимость → розница)</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Единица измерения</span>
+        <input type="text" id="cat-unit" placeholder="шт / м² / м / компл." />
+      </label>
+      <p class="hint">Значок категории подставится автоматически по названию.</p>
+    </div>
+    <div class="modal-footer">
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" data-close-modal="category-modal">Отмена</button>
+      <button class="btn btn-primary" id="btn-save-category">Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settings-modal-backdrop" hidden>
+  <div class="modal modal-sm" id="settings-modal">
+    <div class="modal-header">
+      <h2>Настройки</h2>
+      <button class="modal-close" data-close-modal="settings-modal"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <label class="field">
+        <span>Название компании</span>
+        <input type="text" id="set-company" />
+      </label>
+      <label class="field">
+        <span>Валюта (символ)</span>
+        <input type="text" id="set-currency-symbol" maxlength="4" />
+      </label>
+      <label class="field">
+        <span>Наценка по умолчанию, %</span>
+        <input type="number" id="set-markup" min="0" step="1" />
+        <small class="hint">200% значит цена клиенту = себестоимость × 3</small>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" data-close-modal="settings-modal">Отмена</button>
+      <button class="btn btn-primary" id="btn-save-settings">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Activity drawer -->
+<div class="modal-backdrop" id="activity-modal-backdrop" hidden>
+  <div class="modal" id="activity-modal">
+    <div class="modal-header">
+      <h2>Журнал обновлений цен</h2>
+      <button class="modal-close" data-close-modal="activity-modal"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <table class="activity-table" id="activity-table">
+        <thead>
+          <tr><th>Время</th><th>Позиция</th><th>Статус</th><th>Цена</th><th>Сообщение</th></tr>
+        </thead>
+        <tbody id="activity-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toast-stack"></div>
+
+<script src="/js/app.js" type="module"></script>
+</body>
+</html>

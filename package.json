@@ -1,0 +1,21 @@
+{
+  "name": "arteko-price-list",
+  "version": "1.0.0",
+  "description": "Прайс-лист АРТЕКО — материалы, фурнитура, автопарсинг цен по ссылкам",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node --use-system-ca server/index.js",
+    "seed": "node scripts/seed-from-excel.js",
+    "migrate": "node scripts/migrate-to-postgres.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "cheerio": "^1.1.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "nanoid": "^3.3.8",
+    "undici": "^7.29.1"
+  }
+}
