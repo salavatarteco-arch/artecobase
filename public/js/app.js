@@ -360,7 +360,7 @@ function linksCellHtml(item) {
 
 function nameCellHtml(it) {
   const thumb = it.imageUrl ? `<img class="row-thumb" src="${it.imageUrl}" alt="" />` : '';
-  return `${thumb}<div class="name-cell-text">${escapeHtml(it.name)}${it.manufacturer ? `<span class="sub">${escapeHtml(it.manufacturer)}</span>` : ''}</div>`;
+  return `${thumb}<div class="name-cell-text name-cell-link" data-open-detail="${it.id}" title="Открыть карточку товара">${escapeHtml(it.name)}${it.manufacturer ? `<span class="sub">${escapeHtml(it.manufacturer)}</span>` : ''}</div>`;
 }
 
 function rowSheetHtml(it, symbol) {
@@ -424,6 +424,9 @@ function selectAllText(el) {
 }
 
 function bindRowEvents() {
+  document.querySelectorAll('[data-open-detail]').forEach((el) => {
+    el.addEventListener('click', () => openItemDetail(el.dataset.openDetail));
+  });
   document.querySelectorAll('.editable').forEach((el) => {
     el.addEventListener('focus', () => selectAllText(el));
     el.addEventListener('keydown', (e) => {
@@ -518,13 +521,20 @@ async function bulkParseCurrentCategory() {
 
 // -------------------------------------------------------------- modals ----
 function openModal(id) { document.getElementById(`${id}-backdrop`).hidden = false; }
-function closeModal(id) { document.getElementById(`${id}-backdrop`).hidden = true; }
+function closeModal(id) {
+  document.getElementById(`${id}-backdrop`).hidden = true;
+  // Карточка товара живёт в адресной строке (#item=...) — закрывая её вручную,
+  // убираем hash, иначе обновление страницы снова откроет ту же карточку.
+  if (id === 'item-detail' && /item=/.test(location.hash)) {
+    history.pushState('', document.title, location.pathname + location.search);
+  }
+}
 
 document.querySelectorAll('[data-close-modal]').forEach((el) => {
   el.addEventListener('click', () => closeModal(el.dataset.closeModal));
 });
 document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
-  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) backdrop.hidden = true; });
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(backdrop.id.replace(/-backdrop$/, '')); });
 });
 
 // ---- category modal ----
@@ -670,6 +680,159 @@ function compressItemPhoto(file) {
     reader.readAsDataURL(file);
   });
 }
+
+// ------------------------------------------------------- карточка товара ---
+// Подробная "как на Ozon" карточка позиции: открывается кликом по строке,
+// живёт в адресной строке (#item=ID) — можно поделиться ссылкой, обновить
+// страницу или нажать "назад" в браузере, карточка откроется/закроется сама.
+let detailItem = null;
+
+async function openItemDetail(id, opts = {}) {
+  let item = state.items.find((i) => i.id === id);
+  if (!item) {
+    try { item = await api.get(`/api/items/${id}`); }
+    catch { toast('Позиция не найдена', 'error'); return; }
+    if (item.categoryId !== state.currentCategoryId) {
+      state.currentCategoryId = item.categoryId;
+      await loadAll();
+    }
+  }
+  detailItem = { ...item, files: [] };
+  if (!opts.skipHash) location.hash = `item=${id}`;
+  renderItemDetail();
+  openModal('item-detail');
+  try {
+    detailItem.files = await api.get(`/api/items/${id}/files`);
+  } catch {
+    detailItem.files = [];
+  }
+  renderItemDetailFiles();
+}
+
+function renderItemDetail() {
+  const it = detailItem;
+  const symbol = state.settings.currencySymbol;
+  const isSheet = it.pricingMode === 'sheet';
+  const cat = state.categories.find((c) => c.id === it.categoryId);
+
+  document.getElementById('item-detail-title').textContent = it.name;
+
+  const specs = [];
+  if (it.manufacturer) specs.push(['Производитель', it.manufacturer]);
+  if (it.sku) specs.push(['Артикул', it.sku]);
+  (it.articles || []).forEach((a) => specs.push([a.label || 'Артикул', a.value]));
+  if (isSheet) {
+    specs.push(['Цена плиты', fmtMoney(it.priceSheet, symbol)]);
+    specs.push(['Высота, м', fmtNum(it.heightM, 3)]);
+    specs.push(['Ширина, м', fmtNum(it.widthM, 3)]);
+    if (it.thicknessMm) specs.push(['Толщина, мм', fmtNum(it.thicknessMm, 0)]);
+    specs.push(['Площадь листа', `${fmtNum(it.area, 3)} м²`]);
+  } else {
+    specs.push(['Единица измерения', it.unit || 'шт']);
+    if (it.stockQty != null) specs.push(['Остаток на складе', fmtNum(it.stockQty, 0)]);
+  }
+  specs.push(['Обновлено', timeAgo(it.updatedAt)]);
+
+  const linksHtml = (it.links && it.links.length)
+    ? it.links.map((l) => {
+        const fr = linkFreshness(l);
+        return `
+          <div class="link-row" data-link-id="${l.id}">
+            <span class="link-status-dot" style="background:var(--${fr.cls}-fg)" title="${fr.label}${l.lastParsedAt ? ' · ' + timeAgo(l.lastParsedAt) : ''}"></span>
+            <a href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(hostnameOf(l.url))}</a>
+            <button class="link-parse-btn" data-detail-parse-link="${l.id}" title="Обновить цену по ссылке">${icon('refresh')}</button>
+          </div>`;
+      }).join('')
+    : `<span class="muted">Ссылок нет.</span>`;
+
+  document.getElementById('item-detail-body').innerHTML = `
+    <div class="pd-layout">
+      <div>
+        ${it.imageUrl
+          ? `<img class="pd-photo" src="${it.imageUrl}" alt="" />`
+          : `<div class="pd-photo">${icon('box', 'icon-lg')}</div>`}
+        <div class="pd-crumb">${escapeHtml(cat ? cat.name : '')}${it.subcategory ? ' · ' + escapeHtml(it.subcategory) : ''}</div>
+      </div>
+      <div class="pd-main">
+        <h3 class="pd-title">${escapeHtml(it.name)}</h3>
+        ${it.manufacturer ? `<p class="pd-subtitle">${escapeHtml(it.manufacturer)}</p>` : ''}
+
+        <div class="pd-price-block">
+          <div class="pd-price-main">
+            <label>Цена клиенту${isSheet ? ' / м²' : ''}</label>
+            <strong>${fmtMoney(it.retailPrice, symbol)}</strong>
+          </div>
+          <div class="pd-price-sub">
+            <label>Себестоимость${isSheet ? ' / м²' : ''}</label>
+            <strong>${fmtMoney(it.costPerUnit, symbol)}</strong>
+          </div>
+        </div>
+
+        <table class="pd-specs">${specs.map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(String(v))}</td></tr>`).join('')}</table>
+
+        <div class="pd-section-title">Ссылки на источники</div>
+        <div class="link-cell" style="margin-bottom:20px;">${linksHtml}</div>
+
+        <div class="pd-section-title">Документация</div>
+        <div class="files-editor" id="detail-files-editor" style="margin-bottom:20px;"><span class="muted">Загрузка…</span></div>
+
+        ${it.notes ? `<div class="pd-section-title">Примечания</div><div class="pd-notes">${escapeHtml(it.notes)}</div>` : ''}
+      </div>
+    </div>
+  `;
+
+  document.querySelectorAll('[data-detail-parse-link]').forEach((b) => {
+    b.addEventListener('click', async () => {
+      b.classList.add('spinning');
+      try {
+        const { result } = await api.post(`/api/items/${it.id}/links/${b.dataset.detailParseLink}/parse`);
+        const updated = await api.get(`/api/items/${it.id}`);
+        detailItem = { ...updated, files: detailItem.files };
+        renderItemDetail();
+        renderItemDetailFiles();
+        refreshFileBadge();
+        toast(result.status === 'ok' ? `Цена обновлена: ${fmtMoney(result.price, symbol)}` : (result.message || 'Не удалось обновить цену'), result.status === 'ok' ? 'success' : '');
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+  });
+}
+
+function renderItemDetailFiles() {
+  const wrap = document.getElementById('detail-files-editor');
+  if (!wrap) return;
+  renderFileList(wrap, detailItem.files || [], 'Файлов пока нет.', (fileId) => {
+    detailItem.files = (detailItem.files || []).filter((x) => x.id !== fileId);
+    renderItemDetailFiles();
+  });
+}
+
+document.getElementById('btn-detail-edit').addEventListener('click', () => {
+  if (!detailItem) return;
+  closeModal('item-detail');
+  openItemModal(detailItem.id);
+});
+document.getElementById('btn-detail-delete').addEventListener('click', async () => {
+  if (!detailItem) return;
+  if (!confirm('Удалить эту позицию из прайс-листа?')) return;
+  await api.del(`/api/items/${detailItem.id}`);
+  closeModal('item-detail');
+  await loadItems();
+  renderTable();
+  countItemsPerCategory();
+  toast('Позиция удалена');
+});
+
+window.addEventListener('hashchange', () => {
+  const match = location.hash.match(/item=([\w-]+)/);
+  const backdrop = document.getElementById('item-detail-backdrop');
+  if (match) {
+    if (backdrop.hidden || !detailItem || detailItem.id !== match[1]) openItemDetail(match[1], { skipHash: true });
+  } else if (!backdrop.hidden) {
+    closeModal('item-detail');
+  }
+});
 
 let modalItem = null; // рабочая копия редактируемой позиции
 
@@ -1152,7 +1315,10 @@ document.getElementById('import-input').addEventListener('change', async (e) => 
 });
 
 // ------------------------------------------------------------------ init ---
-loadAll().catch((err) => {
+loadAll().then(() => {
+  const match = location.hash.match(/item=([\w-]+)/);
+  if (match) openItemDetail(match[1], { skipHash: true });
+}).catch((err) => {
   console.error(err);
   toast('Не удалось загрузить данные: ' + err.message, 'error');
 });

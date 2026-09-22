@@ -69,6 +69,23 @@
   </main>
 </div>
 
+<!-- Item detail ("product page") modal -->
+<div class="modal-backdrop" id="item-detail-backdrop" hidden>
+  <div class="modal modal-lg" id="item-detail-modal">
+    <div class="modal-header">
+      <h2 id="item-detail-title">Позиция</h2>
+      <button class="modal-close" data-close-modal="item-detail"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body" id="item-detail-body"><!-- rendered by JS --></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-detail-delete">Удалить</button>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" data-close-modal="item-detail">Закрыть</button>
+      <button class="btn btn-primary" id="btn-detail-edit">Редактировать</button>
+    </div>
+  </div>
+</div>
+
 <!-- Item edit modal -->
 <div class="modal-backdrop" id="item-modal-backdrop" hidden>
   <div class="modal" id="item-modal">

@@ -327,6 +327,8 @@ button { font-family: inherit; }
 .price-table td.num strong { font-weight: 800; color: var(--ink); }
 .price-table td.name-cell { max-width: 360px; display: flex; align-items: center; gap: 10px; }
 .price-table td.name-cell .name-cell-text { font-weight: 700; min-width: 0; }
+.price-table td.name-cell .name-cell-link { cursor: pointer; }
+.price-table td.name-cell .name-cell-link:hover { color: var(--accent); text-decoration: underline; }
 .price-table td.name-cell .sub { display: block; font-weight: 500; color: var(--ink-faint); font-size: 11.5px; }
 .row-thumb { width: 34px; height: 34px; border-radius: 7px; object-fit: contain; background: var(--panel); flex: none; border: 1px solid var(--line); }
 .price-table td.muted-cell { color: var(--ink-faint); }
@@ -400,6 +402,48 @@ button { font-family: inherit; }
   flex-direction: column;
 }
 .modal-sm { width: 420px; }
+.modal-lg { width: 880px; }
+
+/* ---------- Карточка товара (product page) ---------- */
+.pd-layout { display: grid; grid-template-columns: 260px 1fr; gap: 26px; }
+.pd-photo {
+  width: 100%; aspect-ratio: 1; border-radius: 12px; object-fit: contain;
+  background: var(--surface); border: 1px solid var(--line); display: flex;
+  align-items: center; justify-content: center; color: var(--ink-faint);
+}
+.pd-photo .icon { width: 42px; height: 42px; }
+.pd-crumb { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .05em; margin: 12px 0 2px; }
+.pd-main { min-width: 0; }
+.pd-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; margin: 0 0 4px; text-wrap: balance; }
+.pd-subtitle { color: var(--ink-soft); font-size: 13px; margin: 0 0 16px; }
+.pd-price-block {
+  display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap;
+  background: var(--accent-dim); border-radius: 12px; padding: 14px 18px; margin-bottom: 18px;
+}
+.pd-price-main { display: flex; flex-direction: column; gap: 2px; }
+.pd-price-main label { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .04em; }
+.pd-price-main strong { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+.pd-price-sub { display: flex; flex-direction: column; gap: 2px; }
+.pd-price-sub label { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .04em; }
+.pd-price-sub strong { font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.pd-specs { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px; }
+.pd-specs tr { border-bottom: 1px solid var(--line); }
+.pd-specs tr:last-child { border-bottom: none; }
+.pd-specs td { padding: 7px 0; }
+.pd-specs td:first-child { color: var(--ink-faint); width: 42%; }
+.pd-specs td:last-child { color: var(--ink); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+.pd-section-title {
+  font-family: var(--font-display); font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--ink); margin: 0 0 10px;
+}
+.pd-notes { font-size: 13px; color: var(--ink-soft); line-height: 1.5; white-space: pre-wrap; }
+
+@media (max-width: 640px) {
+  .pd-layout { grid-template-columns: 1fr; }
+  .pd-photo { max-width: 200px; margin: 0 auto; }
+}
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 22px;
