@@ -350,10 +350,15 @@ function linksCellHtml(item) {
   return `<div class="link-cell">${rows}</div>`;
 }
 
+function nameCellHtml(it) {
+  const thumb = it.imageUrl ? `<img class="row-thumb" src="${it.imageUrl}" alt="" />` : '';
+  return `${thumb}<div class="name-cell-text">${escapeHtml(it.name)}${it.manufacturer ? `<span class="sub">${escapeHtml(it.manufacturer)}</span>` : ''}</div>`;
+}
+
 function rowSheetHtml(it, symbol) {
   return `
     <tr data-item-id="${it.id}">
-      <td class="name-cell">${escapeHtml(it.name)}${it.manufacturer ? `<span class="sub">${escapeHtml(it.manufacturer)}</span>` : ''}</td>
+      <td class="name-cell">${nameCellHtml(it)}</td>
       <td class="num"><span class="editable" contenteditable data-field="priceSheet" data-item="${it.id}">${it.priceSheet ?? ''}</span></td>
       <td class="num"><span class="editable" contenteditable data-field="heightM" data-item="${it.id}">${it.heightM ?? ''}</span></td>
       <td class="num"><span class="editable" contenteditable data-field="widthM" data-item="${it.id}">${it.widthM ?? ''}</span></td>
@@ -377,7 +382,7 @@ function articlesText(it) {
 function rowDirectHtml(it, symbol) {
   return `
     <tr data-item-id="${it.id}">
-      <td class="name-cell">${escapeHtml(it.name)}${it.manufacturer ? `<span class="sub">${escapeHtml(it.manufacturer)}</span>` : ''}</td>
+      <td class="name-cell">${nameCellHtml(it)}</td>
       <td class="muted-cell">${escapeHtml(articlesText(it))}</td>
       <td class="num"><span class="editable" contenteditable data-field="cost" data-item="${it.id}">${it.cost ?? 0}</span></td>
       <td class="num"><strong>${fmtMoney(it.retailPrice, symbol)}</strong></td>
@@ -619,8 +624,37 @@ function emptyItem() {
     pricingMode: cat?.pricingMode || 'direct',
     priceSheet: null, heightM: null, widthM: null, thicknessMm: null,
     cost: 0, markupPercent: null, retailOverride: null, stockQty: null,
-    notes: '', articles: [], links: [],
+    notes: '', articles: [], links: [], imageUrl: '',
   };
+}
+
+// Сжимаем фото на клиенте перед сохранением — оно попадает прямо в позицию
+// (в базе, в списке позиций), поэтому держим его небольшим: до 480px по
+// длинной стороне, JPEG ~70% — обычно это 15–40 КБ на фото.
+const ITEM_PHOTO_MAX_DIM = 480;
+const ITEM_PHOTO_QUALITY = 0.72;
+function compressItemPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Не удалось разобрать изображение'));
+      img.onload = () => {
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        const scale = Math.min(1, ITEM_PHOTO_MAX_DIM / Math.max(w, h));
+        const cw = Math.max(1, Math.round(w * scale));
+        const ch = Math.max(1, Math.round(h * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = cw; canvas.height = ch;
+        canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+        resolve(canvas.toDataURL('image/jpeg', ITEM_PHOTO_QUALITY));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 let modalItem = null; // рабочая копия редактируемой позиции
@@ -643,6 +677,22 @@ function renderItemModalBody() {
   const pricing = computeClientPricing(modalItem, settings);
 
   body.innerHTML = `
+    <div class="photo-row">
+      <div class="photo-thumb-wrap" id="photo-thumb-wrap">
+        ${modalItem.imageUrl
+          ? `<img class="photo-thumb" id="photo-thumb-img" src="${modalItem.imageUrl}" alt="" />`
+          : `<div class="photo-thumb photo-thumb-empty" id="photo-thumb-img">${icon('box', 'icon-lg')}</div>`}
+      </div>
+      <div class="photo-controls">
+        <label class="btn btn-ghost btn-block">
+          <span id="photo-upload-label">${modalItem.imageUrl ? 'Заменить фото' : 'Добавить фото'}</span>
+          <input type="file" accept="image/*" id="f-photo-file" hidden />
+        </label>
+        <button type="button" class="btn btn-ghost btn-block" id="btn-photo-clear" ${modalItem.imageUrl ? '' : 'hidden'}>Удалить фото</button>
+        <span class="hint">Фото сжимается прямо в браузере, отдельно загружать никуда не нужно.</span>
+      </div>
+    </div>
+
     <div class="field-row">
       <label class="field"><span>Название</span><input id="f-name" value="${escapeHtml(modalItem.name)}" placeholder="Например: H1344 ST9 Дуб" /></label>
       <label class="field"><span>Подкатегория / коллекция</span><input id="f-subcategory" value="${escapeHtml(modalItem.subcategory)}" placeholder="Например: EGGER дерево" /></label>
@@ -728,6 +778,26 @@ function renderItemModalBody() {
   const overrideInput = document.getElementById('f-retailOverride');
   if (overrideInput) overrideInput.addEventListener('input', () => { syncFormIntoModalItem(); refreshComputedBox(); });
 
+  document.getElementById('f-photo-file').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const label = document.getElementById('photo-upload-label');
+    const prevLabel = label.textContent;
+    label.textContent = 'Обработка…';
+    try {
+      const dataUrl = await compressItemPhoto(file);
+      modalItem.imageUrl = dataUrl;
+      updatePhotoPreview();
+    } catch (err) {
+      toast(err.message || 'Не удалось обработать фото', 'error');
+      label.textContent = prevLabel;
+    }
+  });
+  document.getElementById('btn-photo-clear').addEventListener('click', () => {
+    modalItem.imageUrl = '';
+    updatePhotoPreview();
+  });
+
   document.getElementById('btn-add-article').addEventListener('click', () => {
     modalItem.articles = [...(modalItem.articles || []), { label: '', value: '' }];
     renderArticlesEditor();
@@ -736,6 +806,15 @@ function renderItemModalBody() {
     modalItem.links = [...(modalItem.links || []), { id: 'new-' + Math.random().toString(36).slice(2, 8), url: '', label: '', autoParse: true, status: 'pending' }];
     renderLinksEditor();
   });
+}
+
+function updatePhotoPreview() {
+  const wrap = document.getElementById('photo-thumb-wrap');
+  wrap.innerHTML = modalItem.imageUrl
+    ? `<img class="photo-thumb" id="photo-thumb-img" src="${modalItem.imageUrl}" alt="" />`
+    : `<div class="photo-thumb photo-thumb-empty" id="photo-thumb-img">${icon('box', 'icon-lg')}</div>`;
+  document.getElementById('photo-upload-label').textContent = modalItem.imageUrl ? 'Заменить фото' : 'Добавить фото';
+  document.getElementById('btn-photo-clear').hidden = !modalItem.imageUrl;
 }
 
 function refreshComputedBox() {

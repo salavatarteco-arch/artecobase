@@ -6,13 +6,30 @@
 
 const { neon } = require('@neondatabase/serverless');
 
-let sql = null;
-function db() {
-  if (!sql) {
+let rawSql = null;
+function rawDb() {
+  if (!rawSql) {
     if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL не задан');
-    sql = neon(process.env.DATABASE_URL);
+    rawSql = neon(process.env.DATABASE_URL);
   }
-  return sql;
+  return rawSql;
+}
+
+// Один повтор при кратковременном сбое соединения — например, "холодный
+// старт" простаивавшего Neon-компьюта иногда не успевает поднять реплику к
+// первому запросу. Без этого такой момент выглядел как случайный 500 при
+// создании позиции/обновлении цены, хотя повторный запрос сразу проходил.
+function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+function db() {
+  const client = rawDb();
+  return async function tagged(...args) {
+    try {
+      return await client(...args);
+    } catch (err) {
+      await sleep(350);
+      return client(...args);
+    }
+  };
 }
 
 // ---------- маппинг строк БД (snake_case) <-> объектов приложения (camelCase) ----------
@@ -66,6 +83,53 @@ function rowToActivity(r) {
     price: r.price != null ? Number(r.price) : null,
   };
 }
+function rowToServiceCategory(r) {
+  return { id: r.id, name: r.name, icon: r.icon || '', sortOrder: r.sort_order, createdAt: r.created_at };
+}
+function rowToService(r) {
+  return {
+    id: r.id,
+    categoryId: r.category_id,
+    name: r.name,
+    unit: r.unit || 'шт',
+    priceType: r.price_type,
+    price: r.price != null ? Number(r.price) : null,
+    note: r.note || '',
+    sortOrder: r.sort_order,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+function rowToProposal(r) {
+  return {
+    id: r.id,
+    shareToken: r.share_token,
+    title: r.title || '',
+    clientName: r.client_name || '',
+    clientPhone: r.client_phone || '',
+    objectAddress: r.object_address || '',
+    installerName: r.installer_name || '',
+    installerPhone: r.installer_phone || '',
+    projectAmount: r.project_amount != null ? Number(r.project_amount) : null,
+    notes: r.notes || '',
+    status: r.status,
+    items: r.items || [],
+    totalAmount: r.total_amount != null ? Number(r.total_amount) : 0,
+    createdBy: r.created_by || '',
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+function rowToProposalFileMeta(r) {
+  return {
+    id: r.id,
+    proposalId: r.proposal_id,
+    filename: r.filename,
+    mimeType: r.mime_type,
+    size: r.size,
+    createdAt: r.created_at,
+  };
+}
 
 // ---------- settings ----------
 async function getSettings() {
@@ -78,6 +142,9 @@ async function getSettings() {
     currencySymbol: r.currency_symbol,
     defaultMarkupPercent: Number(r.default_markup_percent),
     autoParseIntervalHours: r.auto_parse_interval_hours,
+    servicesCurrencySymbol: r.services_currency_symbol,
+    servicesSeeded: r.services_seeded,
+    servicesNotice: r.services_notice,
   };
 }
 async function setSettings(full) {
@@ -87,7 +154,10 @@ async function setSettings(full) {
       currency = ${full.currency},
       currency_symbol = ${full.currencySymbol},
       default_markup_percent = ${full.defaultMarkupPercent},
-      auto_parse_interval_hours = ${full.autoParseIntervalHours}
+      auto_parse_interval_hours = ${full.autoParseIntervalHours},
+      services_currency_symbol = ${full.servicesCurrencySymbol},
+      services_seeded = ${full.servicesSeeded},
+      services_notice = ${full.servicesNotice}
     WHERE id = 1`;
   return full;
 }
@@ -177,9 +247,137 @@ async function insertActivity(entry) {
   return entry;
 }
 
+// ---------- service categories ----------
+async function listServiceCategories() {
+  const rows = await db()`SELECT * FROM service_categories ORDER BY sort_order ASC`;
+  return rows.map(rowToServiceCategory);
+}
+async function insertServiceCategory(cat) {
+  await db()`
+    INSERT INTO service_categories (id, name, icon, sort_order, created_at)
+    VALUES (${cat.id}, ${cat.name}, ${cat.icon}, ${cat.sortOrder}, ${cat.createdAt})`;
+  return cat;
+}
+async function updateServiceCategoryRow(id, patch) {
+  const rows = await db()`SELECT * FROM service_categories WHERE id = ${id}`;
+  if (!rows[0]) return null;
+  const merged = { ...rowToServiceCategory(rows[0]), ...patch, id };
+  await db()`
+    UPDATE service_categories SET name = ${merged.name}, icon = ${merged.icon}, sort_order = ${merged.sortOrder}
+    WHERE id = ${id}`;
+  return merged;
+}
+async function deleteServiceCategoryRow(id) {
+  await db()`DELETE FROM service_categories WHERE id = ${id}`;
+}
+
+// ---------- services ----------
+async function listServices({ categoryId } = {}) {
+  const rows = categoryId
+    ? await db()`SELECT * FROM services WHERE category_id = ${categoryId} ORDER BY sort_order ASC`
+    : await db()`SELECT * FROM services ORDER BY sort_order ASC`;
+  return rows.map(rowToService);
+}
+async function getServiceById(id) {
+  const rows = await db()`SELECT * FROM services WHERE id = ${id}`;
+  return rows[0] ? rowToService(rows[0]) : null;
+}
+async function insertService(svc) {
+  await db()`
+    INSERT INTO services (id, category_id, name, unit, price_type, price, note, sort_order, created_at, updated_at)
+    VALUES (${svc.id}, ${svc.categoryId}, ${svc.name}, ${svc.unit}, ${svc.priceType}, ${svc.price},
+            ${svc.note}, ${svc.sortOrder}, ${svc.createdAt}, ${svc.updatedAt})`;
+  return svc;
+}
+async function updateServiceRow(id, patch) {
+  const existing = await getServiceById(id);
+  if (!existing) return null;
+  const merged = { ...existing, ...patch, id };
+  await db()`
+    UPDATE services SET
+      category_id = ${merged.categoryId}, name = ${merged.name}, unit = ${merged.unit},
+      price_type = ${merged.priceType}, price = ${merged.price}, note = ${merged.note},
+      sort_order = ${merged.sortOrder}, updated_at = ${merged.updatedAt}
+    WHERE id = ${id}`;
+  return merged;
+}
+async function deleteServiceRow(id) {
+  await db()`DELETE FROM services WHERE id = ${id}`;
+}
+
+// ---------- proposals (ТЗ) ----------
+async function listProposals() {
+  const rows = await db()`SELECT * FROM proposals ORDER BY created_at DESC`;
+  return rows.map(rowToProposal);
+}
+async function getProposalById(id) {
+  const rows = await db()`SELECT * FROM proposals WHERE id = ${id}`;
+  return rows[0] ? rowToProposal(rows[0]) : null;
+}
+async function getProposalByShareToken(token) {
+  const rows = await db()`SELECT * FROM proposals WHERE share_token = ${token}`;
+  return rows[0] ? rowToProposal(rows[0]) : null;
+}
+async function insertProposal(p) {
+  await db()`
+    INSERT INTO proposals (
+      id, share_token, title, client_name, client_phone, object_address, installer_name,
+      installer_phone, project_amount, notes, status, items, total_amount, created_by, created_at, updated_at
+    ) VALUES (
+      ${p.id}, ${p.shareToken}, ${p.title}, ${p.clientName}, ${p.clientPhone}, ${p.objectAddress},
+      ${p.installerName}, ${p.installerPhone}, ${p.projectAmount}, ${p.notes}, ${p.status},
+      ${JSON.stringify(p.items)}, ${p.totalAmount}, ${p.createdBy}, ${p.createdAt}, ${p.updatedAt}
+    )`;
+  return p;
+}
+async function updateProposalRow(id, patch) {
+  const existing = await getProposalById(id);
+  if (!existing) return null;
+  const merged = { ...existing, ...patch, id };
+  await db()`
+    UPDATE proposals SET
+      title = ${merged.title}, client_name = ${merged.clientName}, client_phone = ${merged.clientPhone},
+      object_address = ${merged.objectAddress}, installer_name = ${merged.installerName},
+      installer_phone = ${merged.installerPhone}, project_amount = ${merged.projectAmount},
+      notes = ${merged.notes}, status = ${merged.status}, items = ${JSON.stringify(merged.items)},
+      total_amount = ${merged.totalAmount}, updated_at = ${merged.updatedAt}
+    WHERE id = ${id}`;
+  return merged;
+}
+async function deleteProposalRow(id) {
+  await db()`DELETE FROM proposals WHERE id = ${id}`; // proposal_files уйдут по ON DELETE CASCADE
+}
+
+// ---------- proposal files ----------
+async function listProposalFiles(proposalId) {
+  const rows = await db()`
+    SELECT id, proposal_id, filename, mime_type, size, created_at FROM proposal_files
+    WHERE proposal_id = ${proposalId} ORDER BY created_at ASC`;
+  return rows.map(rowToProposalFileMeta);
+}
+async function getProposalFileById(id) {
+  const rows = await db()`SELECT * FROM proposal_files WHERE id = ${id}`;
+  if (!rows[0]) return null;
+  return { ...rowToProposalFileMeta(rows[0]), dataBase64: rows[0].data_base64 };
+}
+async function insertProposalFile(file) {
+  await db()`
+    INSERT INTO proposal_files (id, proposal_id, filename, mime_type, size, data_base64, created_at)
+    VALUES (${file.id}, ${file.proposalId}, ${file.filename}, ${file.mimeType}, ${file.size},
+            ${file.dataBase64}, ${file.createdAt})`;
+  return file;
+}
+async function deleteProposalFileRow(id) {
+  await db()`DELETE FROM proposal_files WHERE id = ${id}`;
+}
+
 module.exports = {
   getSettings, setSettings,
   listCategories, insertCategory, updateCategoryRow, deleteCategoryRow,
   listItems, getItemById, insertItem, updateItemRow, deleteItemRow,
   listActivity, insertActivity,
+  listServiceCategories, insertServiceCategory, updateServiceCategoryRow, deleteServiceCategoryRow,
+  listServices, getServiceById, insertService, updateServiceRow, deleteServiceRow,
+  listProposals, getProposalById, getProposalByShareToken, insertProposal, updateProposalRow, deleteProposalRow,
+  listProposalFiles, getProposalFileById, insertProposalFile, deleteProposalFileRow,
 };

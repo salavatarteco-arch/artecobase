@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Техническое задание — АРТЕКО</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  /* Страница самодостаточна (без внешних /css и /js файлов) — открывается по
+     публичной ссылке без пароля, поэтому не должна зависеть от статики,
+     защищённой авторизацией. */
+  :root{
+    --bg:#ECECEC; --surface:#FFFFFF; --ink:#17140F; --ink-soft:#6E6A61; --ink-faint:#9B9789;
+    --line:#E2DED2; --accent:#FF5A22; --accent-dim:#FFE3D2; --amber-bg:#FCEFD9; --amber-fg:#93611A;
+    font-family:'Manrope', system-ui, sans-serif; color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
+  .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 28px 16px 48px; gap: 16px; }
+  .sheet { width: 100%; max-width: 760px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 6px 24px rgba(23,20,15,.08); padding: 28px 32px 32px; }
+  .head { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand svg { width: 26px; height: 26px; color: var(--accent); flex: none; }
+  .brand strong { display: block; font-family: 'Unbounded', sans-serif; font-size: 17px; font-weight: 800; }
+  .brand span { display: block; font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .meta { text-align: right; font-size: 12px; color: var(--ink-soft); }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin: 18px 0; font-size: 13.5px; }
+  .fields .full { grid-column: 1 / -1; }
+  .fields label { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); margin-bottom: 3px; }
+  h2.section { font-family: 'Unbounded', sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin: 22px 0 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 9px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); font-family: 'Unbounded', sans-serif; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .total-row { display: flex; justify-content: flex-end; gap: 12px; align-items: baseline; padding: 14px 4px; border-top: 2px solid var(--ink); margin-top: 4px; }
+  .total-row strong { font-family: 'Unbounded', sans-serif; font-size: 24px; font-variant-numeric: tabular-nums; }
+  .notes { white-space: pre-wrap; font-size: 13px; background: var(--bg); border-radius: 10px; padding: 12px 14px; margin-top: 6px; }
+  .notice { white-space: pre-wrap; font-size: 11.5px; line-height: 1.6; background: var(--amber-bg); color: var(--amber-fg); border-radius: 10px; padding: 12px 14px; margin-top: 18px; }
+  .files { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+  .file-row { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 9px; padding: 8px 10px; font-size: 12.5px; }
+  .file-row a { color: var(--ink); font-weight: 600; text-decoration: none; flex: 1; }
+  .file-row a:hover { text-decoration: underline; }
+  .file-row .size { color: var(--ink-faint); }
+  .actions { width: 100%; max-width: 760px; display: flex; justify-content: flex-end; }
+  button { appearance: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 9px 16px; border-radius: 9px; font: inherit; font-weight: 700; font-size: 13px; cursor: pointer; }
+  button:hover { border-color: var(--ink-faint); }
+  .state-msg { text-align: center; color: var(--ink-soft); padding: 60px 20px; }
+  @media print {
+    .actions { display: none; }
+    body, .wrap { background: #fff; }
+    .sheet { box-shadow: none; border: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="actions" id="actions" hidden><button id="btn-print">Печать / Сохранить как PDF</button></div>
+  <div class="sheet" id="sheet"><div class="state-msg" id="state-msg">Загрузка…</div></div>
+</div>
+
+<script>
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function fmtMoney(n, sym) { if (n == null || Number.isNaN(n)) return '—'; return `${Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 2, minimumFractionDigits: 2 })} ${sym || ''}`.trim(); }
+function fmtDate(iso) { if (!iso) return ''; return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+function fmtBytes(n) { if (n < 1024) return `${n} Б`; if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} КБ`; return `${(n / 1024 / 1024).toFixed(1)} МБ`; }
+
+async function main() {
+  const token = new URLSearchParams(location.search).get('token');
+  const sheet = document.getElementById('sheet');
+  if (!token) { document.getElementById('state-msg').textContent = 'Ссылка неполная — не указан код доступа.'; return; }
+
+  let data;
+  try {
+    const res = await fetch(`/api/public/proposals/${encodeURIComponent(token)}`);
+    if (!res.ok) throw new Error((await res.json()).error || 'Не удалось загрузить ТЗ');
+    data = await res.json();
+  } catch (err) {
+    document.getElementById('state-msg').textContent = err.message || 'Ссылка недействительна.';
+    return;
+  }
+
+  const sym = data.servicesCurrencySymbol || '₾'; // валюта прайса услуг — см. настройки в основном приложении
+  const rows = (data.items || []).map((it) => {
+    const priceCell = it.priceType === 'percent' ? `${it.unitPrice}%` : fmtMoney(it.unitPrice, sym);
+    const qtyCell = it.priceType === 'percent' ? `${fmtMoney(it.percentBase, sym)} база` : `${it.qty} ${it.unit}`;
+    return `<tr>
+      <td>${esc(it.name)}${it.note ? `<div style="color:var(--ink-faint);font-size:11px;margin-top:2px;">${esc(it.note)}</div>` : ''}</td>
+      <td class="num">${priceCell}</td>
+      <td class="num">${qtyCell}</td>
+      <td class="num"><strong>${fmtMoney(it.amount, sym)}</strong></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="4" style="color:var(--ink-faint);">Услуги пока не добавлены.</td></tr>`;
+
+  const filesHtml = (data.files || []).length
+    ? `<div class="files">${data.files.map((f) => `
+        <div class="file-row">
+          <a href="/api/public/proposals/${encodeURIComponent(token)}/files/${f.id}" target="_blank" rel="noopener">${esc(f.filename)}</a>
+          <span class="size">${fmtBytes(f.size)}</span>
+        </div>`).join('')}</div>`
+    : '';
+
+  sheet.innerHTML = `
+    <div class="head">
+      <div class="brand">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0 L14.2 9.8 L24 12 L14.2 14.2 L12 24 L9.8 14.2 L0 12 L9.8 9.8 Z"/></svg>
+        <div><strong>АРТЕКО</strong><span>Техническое задание на монтаж</span></div>
+      </div>
+      <div class="meta">${esc(data.number)}<br>${fmtDate(data.createdAt)}</div>
+    </div>
+    <div class="fields">
+      <div class="full"><label>Объект</label>${esc(data.title || data.objectAddress || '—')}</div>
+      <div><label>Клиент</label>${esc(data.clientName || '—')} ${data.clientPhone ? `· ${esc(data.clientPhone)}` : ''}</div>
+      <div><label>Монтажник</label>${esc(data.installerName || '—')} ${data.installerPhone ? `· ${esc(data.installerPhone)}` : ''}</div>
+      <div class="full"><label>Адрес объекта</label>${esc(data.objectAddress || '—')}</div>
+    </div>
+
+    <h2 class="section">Состав работ</h2>
+    <table>
+      <thead><tr><th>Услуга</th><th class="num">Цена / %</th><th class="num">Кол-во / база</th><th class="num">Сумма</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="total-row"><span>Итого</span><strong>${fmtMoney(data.totalAmount, sym)}</strong></div>
+
+    ${data.notes ? `<h2 class="section">Комментарий</h2><div class="notes">${esc(data.notes)}</div>` : ''}
+
+    ${filesHtml ? `<h2 class="section">Файлы (чертежи, эскизы)</h2>${filesHtml}` : ''}
+
+    ${data.servicesNotice ? `<div class="notice">${esc(data.servicesNotice)}</div>` : ''}
+  `;
+  document.getElementById('actions').hidden = false;
+  document.getElementById('btn-print').addEventListener('click', () => window.print());
+  document.title = `${data.number} — АРТЕКО`;
+}
+main();
+</script>
+</body>
+</html>

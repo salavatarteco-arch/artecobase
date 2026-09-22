@@ -32,8 +32,13 @@ async function main() {
   const categories = readJson('categories', []);
   const items = readJson('items', []);
   const activity = readJson('activity', []);
+  const serviceCategories = readJson('serviceCategories', []);
+  const serviceItems = readJson('services', []);
+  const proposals = readJson('proposals', []);
+  const proposalFiles = readJson('proposalFiles', []);
 
   console.log(`Найдено локально: ${categories.length} категорий, ${items.length} позиций, ${activity.length} записей журнала.`);
+  console.log(`Прайс услуг: ${serviceCategories.length} категорий, ${serviceItems.length} услуг, ${proposals.length} КП, ${proposalFiles.length} файлов.`);
 
   if (settings) {
     console.log('Переношу настройки…');
@@ -57,6 +62,14 @@ async function main() {
   console.log('Переношу журнал обновлений…');
   for (const entry of activity) {
     await driver.insertActivity(entry);
+  }
+
+  if (serviceCategories.length || serviceItems.length || proposals.length) {
+    console.log('Переношу прайс услуг и КП…');
+    for (const cat of serviceCategories) await driver.insertServiceCategory(cat);
+    for (const svc of serviceItems) await driver.insertService(svc);
+    for (const p of proposals) await driver.insertProposal(p);
+    for (const f of proposalFiles) await driver.insertProposalFile(f);
   }
 
   console.log('\nГотово. Проверьте приложение, подключённое к этой базе.');

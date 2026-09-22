@@ -1,0 +1,154 @@
+/* Прайс услуг + генератор КП — использует токены из styles.css (:root),
+   добавляет только то, чего там нет: вкладки-переключатели, «лист КП» в
+   духе обычных генераторов коммерческих предложений, список файлов. */
+
+:root {
+  --kp-canvas: #E4E4E4; /* светло-серый фон рабочей области — чуть темнее --bg, чтобы "лист" КП на нём читался как бумага */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --kp-canvas: #111013; }
+}
+:root[data-theme="dark"] { --kp-canvas: #111013; }
+
+/* ---------- View tabs ---------- */
+.view-tabs { display: inline-flex; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+.view-tab {
+  appearance: none; border: none; background: transparent; color: var(--ink-soft);
+  font-family: inherit; font-size: 13px; font-weight: 700; padding: 8px 14px;
+  border-radius: 7px; cursor: pointer; white-space: nowrap;
+}
+.view-tab:hover { color: var(--ink); }
+.view-tab.active { background: var(--ink); color: var(--bg); }
+
+.view-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.view-panel[hidden] { display: none; }
+
+/* ---------- Catalog notice box ---------- */
+.notice-box {
+  margin: 16px 0 24px;
+  background: var(--amber-bg);
+  color: var(--amber-fg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.notice-box:empty { display: none; }
+
+/* ---------- KP canvas + sheet (лист КП, "как в генераторах КП") ---------- */
+.kp-canvas {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--kp-canvas);
+  padding: 28px 22px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.kp-sheet {
+  width: 100%;
+  max-width: 760px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 6px 24px rgba(23,20,15,.08);
+  padding: 28px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.kp-sheet-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding-bottom: 16px; border-bottom: 1px solid var(--line);
+}
+.kp-sheet-brand { display: flex; align-items: center; gap: 10px; }
+.kp-sheet-brand .brand-mark { width: 26px; height: 26px; color: var(--accent); flex: none; }
+.kp-sheet-brand strong { display: block; font-family: var(--font-display); font-size: 17px; font-weight: 800; }
+.kp-sheet-brand span { display: block; font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+.kp-sheet-number { text-align: right; display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+
+.kp-fields { display: flex; flex-direction: column; gap: 12px; }
+
+.kp-add-service { position: relative; }
+.kp-add-search-wrap { position: relative; }
+.kp-add-search-wrap input {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px;
+  font-size: 13.5px; font-family: inherit; background: var(--panel); color: var(--ink);
+}
+.kp-add-search-wrap input:focus { outline: none; border-color: var(--ink-faint); box-shadow: 0 0 0 3px var(--accent-dim); background: var(--surface); }
+.kp-suggest {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  max-height: 320px; overflow-y: auto; z-index: 20;
+  box-shadow: 0 8px 24px rgba(23,20,15,.12);
+}
+.kp-suggest[hidden] { display: none; }
+.kp-suggest-group { padding: 7px 12px 3px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); background: var(--panel); }
+.kp-suggest-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; cursor: pointer; font-size: 13px; border-top: 1px solid var(--line); }
+.kp-suggest-item:hover, .kp-suggest-item.active { background: var(--accent-dim); }
+.kp-suggest-item .sname { font-weight: 600; }
+.kp-suggest-item .sprice { color: var(--ink-faint); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.kp-suggest-empty { padding: 14px 12px; font-size: 12.5px; color: var(--ink-faint); }
+
+.kp-lines-table { margin-top: 4px; }
+.kp-lines-table td, .kp-lines-table th { font-size: 12.5px; }
+.kp-lines-table .num input {
+  width: 84px; text-align: right; padding: 5px 7px; border: 1px solid var(--line);
+  border-radius: 6px; font: inherit; font-variant-numeric: tabular-nums; background: var(--surface); color: var(--ink);
+}
+.kp-lines-table .num input:focus { outline: none; border-color: var(--ink-faint); box-shadow: 0 0 0 3px var(--accent-dim); }
+.kp-line-name { font-weight: 700; }
+.kp-line-note { display: block; font-weight: 400; color: var(--ink-faint); font-size: 11.5px; margin-top: 2px; }
+.kp-line-unit { color: var(--ink-faint); font-weight: 500; }
+
+.kp-total-row {
+  display: flex; align-items: baseline; justify-content: flex-end; gap: 12px;
+  padding: 14px 4px; border-top: 2px solid var(--ink);
+  font-size: 13px; color: var(--ink-soft); font-weight: 700;
+}
+.kp-total-row strong { font-family: var(--font-display); font-size: 24px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.kp-files-list { display: flex; flex-direction: column; gap: 6px; }
+.kp-file-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+  padding: 8px 10px; font-size: 12.5px;
+}
+.kp-file-row .kp-file-icon { color: var(--accent); flex: none; }
+.kp-file-row a { color: var(--ink); font-weight: 600; text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kp-file-row a:hover { text-decoration: underline; }
+.kp-file-row .kp-file-size { color: var(--ink-faint); white-space: nowrap; }
+.kp-files-empty { font-size: 12.5px; color: var(--ink-faint); }
+
+.kp-notice {
+  background: var(--amber-bg); color: var(--amber-fg); border-radius: 10px;
+  padding: 10px 12px; font-size: 11.5px; line-height: 1.55; white-space: pre-wrap;
+}
+.kp-notice:empty { display: none; }
+
+.kp-actions {
+  width: 100%; max-width: 760px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 4px 2px 20px;
+}
+
+/* ---------- Saved proposals status badges ---------- */
+.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.status-pill.draft { background: var(--gray-bg); color: var(--gray-fg); }
+.status-pill.sent { background: var(--green-bg); color: var(--green-fg); }
+
+@media (max-width: 900px) {
+  .kp-sheet { padding: 20px 18px 24px; }
+}
+
+/* ---------- Print (КП — печать / сохранение как PDF из браузера) ---------- */
+@media print {
+  .sidebar, .topbar, .kp-actions, .kp-add-service { display: none !important; }
+  .app { grid-template-columns: 1fr !important; }
+  .kp-canvas { background: #fff !important; padding: 0 !important; }
+  .kp-sheet { box-shadow: none !important; border: none !important; max-width: 100% !important; }
+  body { background: #fff !important; }
+}

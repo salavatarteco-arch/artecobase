@@ -39,6 +39,10 @@ function verify(signed) {
   }
 }
 
+function isPublicPath(p) {
+  return p === '/p.html' || p.startsWith('/api/public/');
+}
+
 function parseCookies(header) {
   const out = {};
   if (!header) return out;
@@ -97,6 +101,10 @@ function mount(app) {
 
   app.use((req, res, next) => {
     if (req.path === '/login') return next();
+    // Публичная ссылка на ТЗ для монтажника — открывается по нечитаемому
+    // shareToken в самом URL, без пароля от общего прайс-листа (монтажник
+    // не сотрудник офиса и пароль ему не выдают).
+    if (isPublicPath(req.path)) return next();
     const cookies = parseCookies(req.headers.cookie);
     if (verify(cookies[COOKIE_NAME])) return next();
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Требуется вход' });

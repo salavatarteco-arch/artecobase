@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>АРТЕКО — Прайс услуг и ТЗ по монтажу</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/styles.css" />
+<link rel="stylesheet" href="/css/tz.css" />
+</head>
+<body>
+<div id="app" class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0 L14.2 9.8 L24 12 L14.2 14.2 L12 24 L9.8 14.2 L0 12 L9.8 9.8 Z"/></svg>
+      <div class="brand-text">
+        <strong>Услуги и ТЗ</strong>
+        <span>АРТЕКО · для монтажников</span>
+      </div>
+    </div>
+
+    <a class="btn btn-ghost btn-block" href="/index.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5"/><path d="M11 6 5 12 11 18"/></svg> К прайсу материалов</a>
+    <a class="btn btn-ghost btn-block" href="/kp.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19H20"/><path d="M4 15 9 10 13 14 20 6"/></svg> Генератор КП для клиента</a>
+
+    <button class="btn btn-block" id="btn-add-category"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4V20"/><path d="M4 12H20"/></svg> Категория услуг</button>
+
+    <nav class="category-list" id="category-list"><!-- rendered by JS --></nav>
+
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost btn-block" id="btn-open-settings"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7H20"/><circle cx="9" cy="7" r="2"/><path d="M4 17H20"/><circle cx="15" cy="17" r="2"/></svg> Настройки</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="view-tabs" id="view-tabs">
+          <button class="view-tab active" data-view="builder">Новое ТЗ</button>
+          <button class="view-tab" data-view="catalog">Прайс услуг</button>
+          <button class="view-tab" data-view="list">Сохранённые ТЗ</button>
+        </div>
+      </div>
+      <div class="topbar-right" id="topbar-actions"><!-- rendered by JS per view --></div>
+    </header>
+
+    <!-- ============================= КАТАЛОГ ============================= -->
+    <section class="view-panel" id="view-catalog" hidden>
+      <div class="table-scroll">
+        <table class="price-table" id="services-table">
+          <thead>
+            <tr>
+              <th>Наименование</th>
+              <th>Тип цены</th>
+              <th class="num">Значение</th>
+              <th>Ед. изм.</th>
+              <th>Примечание</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="services-table-body"></tbody>
+        </table>
+        <div class="empty-state" id="services-empty" hidden>
+          <p>В этой категории пока нет услуг.</p>
+        </div>
+        <div class="notice-box" id="services-notice-box"></div>
+      </div>
+    </section>
+
+    <!-- ============================= КОНСТРУКТОР ТЗ ============================= -->
+    <section class="view-panel" id="view-builder">
+      <div class="kp-canvas">
+        <div class="kp-sheet" id="kp-sheet">
+
+          <div class="kp-sheet-head">
+            <div class="kp-sheet-brand">
+              <svg class="brand-mark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0 L14.2 9.8 L24 12 L14.2 14.2 L12 24 L9.8 14.2 L0 12 L9.8 9.8 Z"/></svg>
+              <div>
+                <strong id="kp-company-name">АРТЕКО</strong>
+                <span>Техническое задание на монтаж</span>
+              </div>
+            </div>
+            <div class="kp-sheet-number">
+              <span class="muted" id="kp-number">Новое ТЗ</span>
+              <span class="muted" id="kp-date"></span>
+            </div>
+          </div>
+
+          <div class="kp-fields">
+            <label class="field"><span>Название / объект</span><input id="f-title" placeholder="Например: Кухня, ул. Ленина 12" /></label>
+            <div class="field-row">
+              <label class="field"><span>Клиент</span><input id="f-clientName" placeholder="ФИО клиента" /></label>
+              <label class="field"><span>Телефон клиента</span><input id="f-clientPhone" placeholder="+995 …" /></label>
+            </div>
+            <label class="field"><span>Адрес объекта</span><input id="f-objectAddress" placeholder="Город, улица, дом, кв." /></label>
+            <div class="field-row">
+              <label class="field"><span>Монтажник</span><input id="f-installerName" placeholder="ФИО монтажника" /></label>
+              <label class="field"><span>Телефон монтажника</span><input id="f-installerPhone" placeholder="+995 …" /></label>
+            </div>
+            <label class="field">
+              <span>Сумма изделия / проекта (для % и справки)</span>
+              <input id="f-projectAmount" type="number" step="0.01" placeholder="Например: 220000" />
+              <small class="hint">Используется как подсказка при добавлении процентных услуг (сборка % от суммы).</small>
+            </label>
+          </div>
+
+          <div class="section-title"><span>Добавить услугу</span></div>
+          <div class="kp-add-service">
+            <div class="kp-add-search-wrap">
+              <input id="kp-service-search" placeholder="Начните вводить название услуги…" autocomplete="off" />
+              <div class="kp-suggest" id="kp-suggest" hidden></div>
+            </div>
+          </div>
+
+          <table class="price-table kp-lines-table" id="kp-lines-table">
+            <thead>
+              <tr>
+                <th>Услуга</th>
+                <th class="num">Цена / %</th>
+                <th class="num">Кол-во / база %</th>
+                <th class="num">Сумма</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="kp-lines-body"></tbody>
+          </table>
+          <div class="empty-state" id="kp-lines-empty">
+            <p>Пока не добавлено ни одной услуги — начните вводить название выше.</p>
+          </div>
+
+          <div class="kp-total-row">
+            <span>Итого</span>
+            <strong id="kp-total">0 ₾</strong>
+          </div>
+
+          <label class="field"><span>Комментарий монтажнику</span><textarea id="f-notes" rows="2" placeholder="Особые условия, доступ, парковка и т.п."></textarea></label>
+
+          <div class="section-title">
+            <span>Файлы (чертежи, эскизы)</span>
+            <label class="btn btn-ghost add-row-btn file-btn">
+              + Файл
+              <input type="file" id="kp-file-input" multiple hidden />
+            </label>
+          </div>
+          <div class="kp-files-list" id="kp-files-list"></div>
+
+          <div class="kp-notice" id="kp-sheet-notice"></div>
+        </div>
+
+        <div class="kp-actions">
+          <button class="btn btn-ghost" id="btn-kp-new">Новый расчёт</button>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost" id="btn-kp-print"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3H18V9"/><rect x="6" y="13" width="12" height="7"/><path d="M4 9H20V17H16"/><path d="M4 17H4"/></svg> Печать / PDF</button>
+          <button class="btn btn-accent" id="btn-kp-share" disabled title="Сначала сохраните ТЗ"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4H20V10"/><path d="M20 4 11 13"/><path d="M18 14V19A1 1 0 0 1 17 20H5A1 1 0 0 1 4 19V7A1 1 0 0 1 5 6H10"/></svg> Ссылка для монтажника</button>
+          <button class="btn btn-primary" id="btn-kp-save">Сохранить ТЗ</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================= СОХРАНЁННЫЕ ТЗ ============================= -->
+    <section class="view-panel" id="view-list" hidden>
+      <div class="table-scroll">
+        <table class="price-table" id="proposals-table">
+          <thead>
+            <tr>
+              <th>Номер / дата</th>
+              <th>Объект / клиент</th>
+              <th>Монтажник</th>
+              <th class="num">Сумма</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="proposals-table-body"></tbody>
+        </table>
+        <div class="empty-state" id="proposals-empty" hidden>
+          <p>Пока нет сохранённых ТЗ.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Service edit modal -->
+<div class="modal-backdrop" id="service-modal-backdrop" hidden>
+  <div class="modal modal-sm" id="service-modal">
+    <div class="modal-header">
+      <h2 id="service-modal-title">Услуга</h2>
+      <button class="modal-close" data-close-modal="service-modal"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <label class="field"><span>Название</span><input id="svc-name" placeholder="Например: Установка мойки" /></label>
+      <label class="field"><span>Категория</span><select id="svc-category"></select></label>
+      <div class="field-row">
+        <label class="field">
+          <span>Тип цены</span>
+          <select id="svc-price-type">
+            <option value="fixed">Фиксированная за ед.</option>
+            <option value="from">Цена «от» (минимальная)</option>
+            <option value="percent">% от суммы</option>
+            <option value="custom">Договорная</option>
+          </select>
+        </label>
+        <label class="field" id="svc-price-wrap"><span>Значение (₾ или %)</span><input id="svc-price" type="number" step="0.01" /></label>
+      </div>
+      <label class="field"><span>Единица измерения</span><input id="svc-unit" placeholder="шт / м.пог. / % / нормо-час" /></label>
+      <label class="field"><span>Примечание (условия применения)</span><textarea id="svc-note" rows="2"></textarea></label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete-service" hidden>Удалить</button>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" data-close-modal="service-modal">Отмена</button>
+      <button class="btn btn-primary" id="btn-save-service">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category modal -->
+<div class="modal-backdrop" id="category-modal-backdrop" hidden>
+  <div class="modal modal-sm" id="category-modal">
+    <div class="modal-header">
+      <h2>Категория услуг</h2>
+      <button class="modal-close" data-close-modal="category-modal"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <label class="field"><span>Название</span><input id="cat-name" placeholder="Например: Демонтажные работы" /></label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete-category" hidden>Удалить</button>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" data-close-modal="category-modal">Отмена</button>
+      <button class="btn btn-primary" id="btn-save-category">Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settings-modal-backdrop" hidden>
+  <div class="modal modal-sm" id="settings-modal">
+    <div class="modal-header">
+      <h2>Настройки прайса услуг</h2>
+      <button class="modal-close" data-close-modal="settings-modal"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <label class="field"><span>Валюта (символ)</span><input id="set-currency-symbol" maxlength="4" /></label>
+      <label class="field"><span>Важная информация (показывается в прайсе и в ТЗ)</span><textarea id="set-notice" rows="6"></textarea></label>
+    </div>
+    <div class="modal-footer">
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" data-close-modal="settings-modal">Отмена</button>
+      <button class="btn btn-primary" id="btn-save-settings">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share link modal -->
+<div class="modal-backdrop" id="share-modal-backdrop" hidden>
+  <div class="modal modal-sm" id="share-modal">
+    <div class="modal-header">
+      <h2>Ссылка для монтажника</h2>
+      <button class="modal-close" data-close-modal="share-modal"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">Отправьте эту ссылку монтажнику — он увидит ТЗ и сможет скачать приложенные файлы, без пароля от общего прайс-листа.</p>
+      <label class="field"><span>Ссылка</span><input id="share-link-input" readonly /></label>
+    </div>
+    <div class="modal-footer">
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" data-close-modal="share-modal">Закрыть</button>
+      <button class="btn btn-primary" id="btn-copy-share-link">Скопировать</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toast-stack"></div>
+
+<script src="/js/tz.js" type="module"></script>
+</body>
+</html>

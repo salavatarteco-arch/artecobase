@@ -2,9 +2,13 @@
   "functions": {
     "api/index.js": {
       "includeFiles": "public/**"
+    },
+    "api/k.js": {
+      "includeFiles": "public/kp.html"
     }
   },
   "rewrites": [
+    { "source": "/k/:id", "destination": "/api/k?id=:id" },
     { "source": "/(.*)", "destination": "/api/index.js" }
   ]
 }

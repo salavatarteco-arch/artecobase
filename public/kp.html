@@ -1,0 +1,1098 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arteco KP</title>
+<!--OG_TAGS-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+<!--PRELOAD_KP-->
+<style>
+:root{
+  --bg:#ECEAE3;
+  --panel:#F8F7F2;
+  --surface:#FFFFFF;
+  --ink:#17140F;
+  --ink-soft:#6E6A61;
+  --ink-faint:#9B9789;
+  --line:#E2DED2;
+  --accent:#FF5A22;
+  --accent-ink:#FFFFFF;
+  --accent-dim:#FFE3D2;
+  --danger:#C6432F;
+  --focus:#FF5A22;
+  /* fixed "paper" tokens for the generated document — always light, printed-page fidelity regardless of app theme.
+     Kept neutral (R=G=B, no warm/yellow cast) — this is the exact spot a tint reads as "dirty". */
+  --doc-mat:#EDEDED;
+  --doc-paper:#FFFFFF;
+  --doc-ink:#17140F;
+  --doc-soft:#6E6E6E;
+  --doc-faint:#9C9C9C;
+  --doc-line:#E4E4E4;
+  --doc-accent:#FF5A22;
+  --doc-accent-dim:#FFE3D2;
+  --doc-total-bg:#17140F;
+  --doc-total-ink:#FFFFFF;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151310;
+    --panel:#1C1A15;
+    --surface:#221F19;
+    --ink:#F3F0E8;
+    --ink-soft:#A9A395;
+    --ink-faint:#726C5F;
+    --line:#332F26;
+    --accent:#FF6B37;
+    --accent-ink:#161310;
+    --accent-dim:#3B2A1E;
+    --danger:#E5695A;
+    --focus:#FF6B37;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151310;
+  --panel:#1C1A15;
+  --surface:#221F19;
+  --ink:#F3F0E8;
+  --ink-soft:#A9A395;
+  --ink-faint:#726C5F;
+  --line:#332F26;
+  --accent:#FF6B37;
+  --accent-ink:#161310;
+  --accent-dim:#3B2A1E;
+  --danger:#E5695A;
+  --focus:#FF6B37;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+[hidden]{display:none !important;}
+body{background:var(--bg);color:var(--ink);font-family:"Manrope",system-ui,sans-serif;}
+h1,h2,h3{margin:0;text-wrap:balance;}
+button{font-family:inherit;}
+::selection{background:var(--accent);color:var(--accent-ink);}
+
+.shell{min-height:100vh;display:flex;flex-direction:column;}
+
+/* ---------- top bar ---------- */
+.topbar{
+  position:sticky;top:0;z-index:20;
+  display:flex;align-items:center;gap:14px;
+  padding:12px 20px;background:var(--panel);
+  border-bottom:1px solid var(--line);
+}
+.topbar .mark{width:22px;height:22px;color:var(--accent);flex:none;}
+.topbar .brand{display:flex;flex-direction:column;line-height:1.1;}
+.topbar .brand b{font-family:"Unbounded",sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;}
+.topbar .brand span{font-size:11px;color:var(--ink-soft);letter-spacing:.04em;}
+.topbar .spacer{flex:1;}
+.save-status{font-size:12px;color:var(--ink-faint);margin-right:6px;white-space:nowrap;}
+.btn{
+  appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  font-weight:600;font-size:13px;padding:9px 14px;border-radius:9px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:transform .08s ease, border-color .15s ease;
+}
+.btn:hover{border-color:var(--ink-faint);}
+.btn:active{transform:scale(.97);}
+.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--bg);}
+.btn.primary:hover{border-color:var(--ink);opacity:.92;}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
+.btn.accent:hover{opacity:.92;}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--ink-soft);padding:9px 10px;}
+.btn.small{padding:6px 10px;font-size:12px;border-radius:7px;}
+.btn.danger-ghost{background:transparent;border-color:transparent;color:var(--danger);padding:6px 8px;}
+.mobile-tabs{display:none;}
+
+/* ---------- layout ---------- */
+.layout{
+  flex:1;display:grid;grid-template-columns:min(420px,42%) 1fr;gap:0;align-items:start;
+}
+.editor{
+  height:calc(100vh - 57px);overflow-y:auto;padding:22px 20px 60px;
+  border-right:1px solid var(--line);background:var(--panel);
+}
+.previewpane{
+  height:calc(100vh - 57px);overflow-y:auto;padding:28px 32px 60px;
+  display:flex;flex-direction:column;align-items:center;
+  /* fixed, not var(--bg): the paper preview stays the same flat light gray as the document
+     itself in every theme, so there's exactly one background here — never two closely-but-not-
+     quite-matching grays creating a seam. */
+  background:var(--doc-mat);
+}
+
+/* ---------- editor form ---------- */
+.field-group{margin-bottom:22px;}
+.field-group + .field-group{padding-top:22px;border-top:1px solid var(--line);}
+.fg-title{
+  font-family:"Unbounded",sans-serif;font-weight:700;font-size:12px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+.fg-title .rule{flex:1;height:1px;background:var(--line);}
+label.lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;}
+.field{margin-bottom:12px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+input[type=text],input[type=number],input[type=date],textarea,select{
+  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:8px;
+  padding:9px 10px;font-size:13.5px;color:var(--ink);font-family:inherit;
+}
+textarea{resize:vertical;min-height:56px;line-height:1.4;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--ink-faint);box-shadow:0 0 0 3px var(--accent-dim);}
+.hint{font-size:11px;color:var(--ink-faint);margin-top:4px;}
+
+.group-card{border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:12px;background:var(--surface);}
+.group-head{display:flex;gap:8px;align-items:center;margin-bottom:9px;}
+.group-head .grp-title{font-weight:700;}
+.group-total-preview{
+  display:flex;justify-content:flex-end;gap:6px;font-size:12px;color:var(--ink-soft);padding:6px 2px 0;
+  border-top:1px solid var(--line);margin-top:4px;
+}
+.group-total-preview b{color:var(--ink);font-variant-numeric:tabular-nums;}
+.items-in-group{margin-bottom:4px;}
+
+.group-photo-row{margin-bottom:10px;}
+.group-photo-thumb{width:100%;max-height:130px;object-fit:cover;border-radius:9px;margin-bottom:8px;display:block;}
+.group-photo-controls{display:flex;gap:8px;margin-bottom:8px;}
+.group-photo-controls .btn{cursor:pointer;}
+.photo-hint{font-size:10.5px;color:var(--ink-faint);margin:-4px 0 8px;}
+
+.item-row,.list-row{
+  border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:8px;background:var(--panel);
+  position:relative;
+}
+.item-row .top-line{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.item-row .price-line{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;}
+.rm-btn{
+  background:transparent;border:none;color:var(--ink-faint);cursor:pointer;font-size:16px;line-height:1;
+  padding:4px 6px;border-radius:6px;flex:none;
+}
+.rm-btn:hover{color:var(--danger);background:var(--accent-dim);}
+.add-row{
+  width:100%;padding:9px;border:1.5px dashed var(--line);border-radius:9px;background:transparent;
+  color:var(--ink-soft);font-weight:700;font-size:12.5px;cursor:pointer;letter-spacing:.02em;
+}
+.add-row:hover{border-color:var(--accent);color:var(--accent);}
+
+.total-preview{
+  display:flex;justify-content:space-between;align-items:baseline;padding:12px 4px 2px;
+  font-family:"Unbounded",sans-serif;
+}
+.total-preview b{font-size:20px;font-variant-numeric:tabular-nums;}
+
+.actions-sticky{
+  position:sticky;bottom:-1px;background:var(--panel);padding-top:14px;margin-top:6px;
+  display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);
+}
+
+.history-panel{position:fixed;inset:0;background:rgba(10,9,6,.45);z-index:40;display:none;align-items:flex-start;justify-content:flex-end;}
+.history-panel.open{display:flex;}
+.history-sheet{width:min(420px,92vw);height:100%;background:var(--panel);border-left:1px solid var(--line);padding:18px;overflow-y:auto;}
+.history-sheet h3{font-family:"Unbounded",sans-serif;font-size:15px;margin-bottom:14px;}
+.hist-item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--surface);}
+.hist-item .n{font-family:"Unbounded",sans-serif;font-weight:700;font-size:12px;color:var(--accent);}
+.hist-item .t{font-weight:700;font-size:13.5px;margin:2px 0;}
+.hist-item .m{font-size:12px;color:var(--ink-soft);margin-bottom:8px;}
+.hist-item .row{display:flex;gap:6px;flex-wrap:wrap;}
+.hist-empty{font-size:13px;color:var(--ink-faint);padding:20px 4px;}
+
+.linkbox{
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);
+  font-size:12px;color:var(--ink-soft);word-break:break-all;margin-top:8px;
+}
+
+/* ---------- document (the actual КП, printed-paper look — fixed light palette) ---------- */
+.previewpane .toolbar{
+  width:100%;max-width:860px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;
+}
+.previewpane .toolbar .zoom-label{font-size:12px;color:var(--ink-faint);}
+.document{
+  width:100%;max-width:860px;background:var(--doc-mat);color:var(--doc-ink);
+  padding:44px 48px 40px;font-family:"Manrope",sans-serif;
+}
+.doc-topline{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px;}
+.doc-logo{display:flex;align-items:center;gap:8px;}
+.doc-logo svg{width:18px;height:18px;color:var(--doc-accent);}
+.doc-logo .word{font-family:"Unbounded",sans-serif;font-weight:800;font-size:16px;letter-spacing:.01em;}
+.doc-logo .word em{color:var(--doc-accent);font-style:normal;}
+.doc-kpno{text-align:right;font-size:11.5px;color:var(--doc-faint);line-height:1.5;}
+.doc-eyebrow{
+  font-family:"Unbounded",sans-serif;font-weight:700;font-size:11px;letter-spacing:.09em;
+  color:var(--doc-accent);text-transform:uppercase;margin-bottom:10px;
+}
+.doc-title{font-family:"Unbounded",sans-serif;font-weight:700;font-size:30px;line-height:1.15;margin-bottom:14px;}
+.doc-intro{font-size:14px;line-height:1.55;color:var(--doc-soft);max-width:60ch;margin-bottom:18px;}
+/* client/object — a small, always-stacked spec list so it never has to wrap mid-sentence on a narrow screen */
+.doc-metabar{
+  background:var(--doc-paper);border-radius:10px;padding:14px 16px;margin-bottom:30px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.doc-metabar .mb-row{display:flex;gap:8px;font-size:13px;color:var(--doc-soft);}
+.doc-metabar .mb-label{flex:none;width:64px;color:var(--doc-faint);font-weight:700;text-transform:uppercase;font-size:10.5px;letter-spacing:.04em;padding-top:2px;}
+.doc-metabar b{color:var(--doc-ink);font-weight:700;}
+
+.doc-section{margin-bottom:28px;}
+.doc-h{
+  font-family:"Unbounded",sans-serif;font-weight:700;font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--doc-ink);position:relative;padding-bottom:9px;margin-bottom:14px;
+}
+.doc-h::after{content:"";position:absolute;left:0;bottom:0;width:26px;height:3px;background:var(--doc-accent);border-radius:2px;}
+
+/* benefit cards — gradient tiles in a grid, no icons; a soft top-left glow gives each one depth */
+.benefits-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.benefit-card{
+  position:relative;overflow:hidden;border-radius:16px;padding:20px 20px 22px;
+  background-image:radial-gradient(120% 140% at 0% 0%, rgba(255,255,255,.30), transparent 60%),
+                    linear-gradient(135deg, #FF8552 0%, #FF5A22 45%, #E5341C 100%);
+  box-shadow:0 10px 24px -14px rgba(197,45,20,.55);
+}
+.benefit-card b{display:block;color:#fff;font-size:14px;font-weight:700;margin-bottom:6px;letter-spacing:-.01em;}
+.benefit-card span{display:block;color:rgba(255,255,255,.88);font-size:12.5px;line-height:1.5;}
+
+/* smeta — its own visually separated block, distinct from surrounding sections.
+   Spacing rhythm below is deliberately built from one scale (6 / 10 / 20px) so every gap reads the same. */
+.smeta-block{
+  background:var(--doc-paper);border-radius:16px;
+  padding:24px;margin-bottom:28px;
+}
+.smeta-block .doc-h{margin-bottom:18px;}
+.smeta-group{margin-top:20px;}
+.smeta-group:first-child{margin-top:0;}
+.smeta-photo{width:100%;max-height:240px;object-fit:cover;border-radius:12px;margin-bottom:14px;display:block;background:var(--doc-mat);}
+.smeta-group-title{
+  position:relative;padding-left:13px;font-weight:800;font-size:14px;margin-bottom:10px;
+}
+.smeta-group-title::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:3px;background:var(--doc-accent);border-radius:2px;}
+.smeta-row{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--doc-line);gap:10px;}
+.smeta-group .smeta-row:last-of-type{border-bottom:none;padding-bottom:0;}
+.smeta-row .nm b{display:block;font-size:13.5px;}
+.smeta-row .nm span{display:block;font-size:11.5px;color:var(--doc-faint);margin-top:1px;}
+.smeta-row .pr{font-weight:700;font-size:13.5px;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.smeta-group-total{display:flex;justify-content:flex-end;gap:6px;font-size:12px;color:var(--doc-soft);padding-top:10px;margin-top:2px;border-top:1px dashed var(--doc-line);}
+.smeta-group-total b{color:var(--doc-ink);font-variant-numeric:tabular-nums;}
+/* a callout, not a footnote — sits between the estimate and the total so it can't be missed */
+.smeta-comment{
+  background:var(--doc-accent-dim);border-left:3px solid var(--doc-accent);border-radius:10px;
+  padding:14px 16px;margin-bottom:28px;font-size:13px;color:var(--doc-ink);line-height:1.5;
+}
+.smeta-comment b{color:var(--doc-accent);}
+
+.doc-total{background:var(--doc-total-bg);color:var(--doc-total-ink);border-radius:14px;padding:20px 22px;margin-bottom:28px;}
+.doc-total .lbl{font-family:"Unbounded",sans-serif;font-weight:700;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--doc-accent);margin-bottom:8px;}
+.doc-total .num{font-family:"Unbounded",sans-serif;font-weight:800;font-size:34px;font-variant-numeric:tabular-nums;margin-bottom:8px;}
+.doc-total .note{font-size:12.5px;color:#C7C7C7;line-height:1.5;max-width:56ch;}
+
+.step-row{display:flex;gap:13px;align-items:flex-start;background:var(--doc-paper);border-radius:10px;padding:13px 16px;margin-bottom:8px;}
+.step-row .num{
+  width:24px;height:24px;flex:none;border-radius:7px;background:var(--doc-accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-family:"Unbounded",sans-serif;font-weight:700;font-size:12px;margin-top:1px;
+}
+.step-row .txt b{display:block;font-size:13.5px;margin-bottom:2px;}
+.step-row .txt span{display:block;font-size:12.5px;color:var(--doc-soft);line-height:1.45;}
+
+/* instagram — a deliberate, hard-to-miss call to action, not a footer afterthought */
+.doc-instabox{
+  display:flex;align-items:center;gap:16px;background:var(--doc-accent);color:#fff;
+  border-radius:16px;padding:20px 22px;margin-bottom:28px;text-decoration:none;
+}
+.doc-instabox .ig-icon{
+  flex:none;width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,.2);
+  display:flex;align-items:center;justify-content:center;
+}
+.doc-instabox .ig-icon svg{width:24px;height:24px;color:#fff;}
+.doc-instabox .ig-txt{flex:1;min-width:0;}
+.doc-instabox .ig-txt b{display:block;font-size:15px;margin-bottom:2px;}
+.doc-instabox .ig-txt span{display:block;font-size:12.5px;color:rgba(255,255,255,.85);line-height:1.4;}
+.doc-instabox .ig-cta{
+  flex:none;background:#fff;color:var(--doc-accent);font-weight:700;font-size:12.5px;
+  padding:10px 18px;border-radius:999px;white-space:nowrap;
+}
+
+.doc-footer{display:flex;justify-content:center;align-items:center;border-top:1px solid var(--doc-line);padding-top:16px;font-size:11.5px;color:var(--doc-faint);flex-wrap:wrap;gap:6px;}
+
+.badge-view{
+  max-width:860px;width:100%;margin:0 auto 14px;font-size:12px;color:var(--ink-faint);
+  display:flex;align-items:center;gap:6px;
+}
+.badge-view svg{width:13px;height:13px;color:var(--accent);}
+
+/* ---------- responsive ---------- */
+@media (max-width:980px){
+  .layout{display:block;}
+  .editor,.previewpane{height:auto;overflow:visible;}
+  .editor{border-right:none;border-bottom:1px solid var(--line);}
+  .mobile-tabs{display:flex;gap:6px;padding:0 20px 12px;}
+  .mobile-tabs button{flex:1;}
+  .mobile-tabs button.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+  [data-mv="doc"] .editor{display:none;}
+  [data-mv="form"] .previewpane{display:none;}
+  /* one inset carries the left/right margin (previewpane) — the document itself adds none,
+     so its content lines up exactly with the topbar's own 20px edge padding */
+  .previewpane{padding:24px 20px 50px;}
+  .document{padding:28px 0 26px;}
+  .doc-title{font-size:24px;}
+}
+
+/* small phones — tighten chrome so the document gets real width to breathe in */
+@media (max-width:560px){
+  .topbar{padding:10px 14px;gap:8px;}
+  .topbar .brand span{display:none;}
+  .topbar .brand b{font-size:13px;}
+  .save-status{display:none;}
+  .topbar .btn{padding:7px 10px;font-size:12px;}
+  .mobile-tabs{padding:0 14px 10px;}
+  .editor{padding:16px 14px 50px;}
+  /* same single-inset rule as above, just at the topbar's narrower 14px edge padding */
+  .previewpane{padding:14px 14px 40px;}
+  .previewpane .toolbar{margin-bottom:12px;}
+  .previewpane .toolbar .zoom-label{display:none;}
+  .document{padding:24px 0 22px;}
+  .doc-title{font-size:21px;}
+  .doc-kpno{font-size:10.5px;}
+  .doc-total .num{font-size:28px;}
+  .step-row{padding:12px 14px;gap:12px;}
+  .benefits-grid{grid-template-columns:1fr;}
+  .benefit-card{padding:18px 18px 20px;}
+  .smeta-block{padding:18px 16px;}
+  /* the instagram CTA has three flex children — on a narrow card two fixed-width
+     ones (icon + pill) crush the text into a single-word-per-line column, so stack instead */
+  .doc-instabox{flex-direction:column;align-items:flex-start;gap:12px;padding:18px 18px 20px;}
+  .doc-instabox .ig-cta{align-self:flex-start;}
+}
+
+/* ---------- read-only client view ---------- */
+body.view-mode .topbar,
+body.view-mode .editor,
+body.view-mode .mobile-tabs,
+body.view-mode .history-panel{display:none !important;}
+body.view-mode .layout{display:block;}
+body.view-mode .previewpane{height:auto;min-height:100vh;}
+
+/* ---------- print ---------- */
+@media print{
+  body{background:#fff !important;}
+  .topbar,.editor,.mobile-tabs,.previewpane .toolbar,.history-panel,.badge-view{display:none !important;}
+  .previewpane{height:auto;overflow:visible;padding:0;display:block;background:#fff;}
+  .layout{display:block;}
+  .document{background:#fff;max-width:none;margin:0;padding:0;}
+  @page{size:A4;margin:14mm;}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="topbar">
+    <svg class="mark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0 L14.2 9.8 L24 12 L14.2 14.2 L12 24 L9.8 14.2 L0 12 L9.8 9.8 Z"/></svg>
+    <div class="brand"><b>Генератор КП</b><span>АРТЕКО · Тбилиси</span></div>
+    <a class="btn ghost" href="/index.html">Материалы</a>
+    <a class="btn ghost" href="/tz.html">ТЗ по монтажу</a>
+    <div class="spacer"></div>
+    <span class="save-status" id="saveStatus"></span>
+    <button class="btn ghost" id="historyBtn">История</button>
+    <button class="btn" id="newBtn">Новый КП</button>
+  </div>
+
+  <div class="mobile-tabs">
+    <button class="btn small active" data-view="form">Форма</button>
+    <button class="btn small" data-view="doc">Документ</button>
+  </div>
+
+  <div class="layout" id="layout" data-mv="form">
+    <div class="editor" id="editor"><!-- built by JS --></div>
+    <div class="previewpane">
+      <div class="badge-view" id="viewBadge" hidden>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0 L14.2 9.8 L24 12 L14.2 14.2 L12 24 L9.8 14.2 L0 12 L9.8 9.8 Z"/></svg>
+        <span>Коммерческое предложение АРТЕКО — только для просмотра</span>
+      </div>
+      <div class="toolbar">
+        <span class="zoom-label" id="zoomLabel">Предпросмотр КП — так будет выглядеть при печати</span>
+        <button class="btn accent small" id="previewPrintBtn">Печать / PDF</button>
+      </div>
+      <div class="document" id="document"><!-- built by JS --></div>
+    </div>
+  </div>
+
+  <div class="history-panel" id="historyPanel">
+    <div class="history-sheet">
+      <h3>История КП</h3>
+      <div id="histList"></div>
+      <button class="btn small" id="closeHist" style="width:100%;margin-top:10px;">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var LS_DRAFT = "arteco_kp_draft";
+  var LS_HISTORY = "arteco_kp_history";
+  var LS_COUNTER = "arteco_kp_counter";
+
+  // Brand content that stays the same on every KP — not part of the per-proposal editable state,
+  // so it can't drift between proposals and never needs to travel inside a share link.
+  var FIXED = {
+    intro: "Изготовим корпусную мебель по вашему проекту — от раскроя до монтажа, в собственном цеху в Тбилиси.",
+    currency: "₾",
+    totalNote: "Смета действительна 7 дней. Предоплата 70% перед началом работ, 20% при доставке готовых модулей, 10% после завершения монтажных работ.",
+    benefits: [
+      {title:"Свой цех в Тбилиси", desc:"Контролируем каждый этап сами, без подрядчиков и посредников."},
+      {title:"Проектируем с сильным технологом", desc:"Каждый проект уходит в производство только после проверки инженером-технологом."},
+      {title:"Делаем предсборку, проверяем", desc:"Собираем модули в цеху и проверяем посадку до выезда на объект."},
+      {title:"Качественный монтаж", desc:"Доставляем полусобранные модули — на объекте чисто и быстро."},
+      {title:"Гарантия 5 лет", desc:"На корпус, фасады и фурнитуру. Сервис после установки."}
+    ],
+    steps: [
+      {title:"Утверждение сметы", desc:"Фиксируем объём работ, материалы и стоимость."},
+      {title:"Видео-созвон или встреча в шоуруме", desc:"Показываем проект на созвоне с демонстрацией экрана или встречаемся у нас — смотрите материалы вживую."},
+      {title:"Замер сканером Leica", desc:"Точный лазерный замер — без ошибок в размерах."},
+      {title:"Производство и монтаж", desc:"Распил, кромка на PUR-клее, доставка и монтаж — от 30 дней под ключ."}
+    ],
+    footerCity: "АРТЕКО · Тбилиси, Грузия",
+    instagram: "arteco_one_ge",
+    instagramHeadline: "Следите за нашими проектами",
+    instagramSubtext: "Больше готовых кухонь, гардеробных и шкафов — в нашем Instagram"
+  };
+
+  function defaultState(){
+    return {
+      number: "1",
+      date: new Date().toISOString().slice(0,10),
+      clientName: "Имя клиента",
+      objectAddress: "Адрес объекта",
+      projectTitle: "Кухня и прихожая — пример проекта",
+      groups: [
+        {title:"Кухня", photo:"", items:[
+          {name:"Корпус ЛДСП Egger", meta:"16 м²", price:5730},
+          {name:"Фасад Egger H1305", meta:"10 шт", price:6500},
+          {name:"Петли Salice", meta:"1 комплект", price:839}
+        ]},
+        {title:"Прихожая — шкаф-купе", photo:"", items:[
+          {name:"Корпус ЛДСП Egger", meta:"8 м²", price:2600},
+          {name:"Фасад зеркальный", meta:"2 шт", price:1800}
+        ]}
+      ],
+      markupPercent: 15,
+      installationPrice: 300,
+      deliveryPrice: 150,
+      comment: "В смету не входит столешница и техника."
+    };
+  }
+
+  var state = defaultState();
+  var counterNext = 1;
+  var saveTimer = null;
+
+  function esc(s){
+    return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function fmtPrice(n){
+    n = Number(n)||0;
+    return n.toLocaleString("ru-RU",{maximumFractionDigits:2});
+  }
+  function fmtDate(iso){
+    if(!iso) return "";
+    var p = iso.split("-");
+    if(p.length!==3) return iso;
+    return p[2]+"."+p[1]+"."+p[0];
+  }
+  // Materials carry the markup; installation and delivery are quoted as typed, at cost.
+  function applyMarkup(rawPrice, pct){
+    // +1e-9 nudges the classic float case (e.g. 5730*1.15 lands a hair under 6589.5) back onto
+    // the intended .5-rounds-up side, without changing any result that wasn't already borderline.
+    return Math.round((Number(rawPrice)||0) * (1 + (Number(pct)||0)/100) + 1e-9);
+  }
+  function displayItemPrice(rawPrice){
+    return applyMarkup(rawPrice, state.markupPercent);
+  }
+  function groupTotal(g){
+    return g.items.reduce(function(s,it){ return s + displayItemPrice(it.price); }, 0);
+  }
+  // Fills in fields that may be missing from data saved/shared by an older version of this tool.
+  function normalizeState(s){
+    if(!Array.isArray(s.groups) || !s.groups.length){ s.groups = [{title:"", items:[{name:"", meta:"", price:0}], photo:""}]; }
+    s.groups.forEach(function(g){ if(typeof g.photo !== "string") g.photo = ""; });
+    if(typeof s.markupPercent !== "number") s.markupPercent = Number(s.markupPercent)||0;
+    if(typeof s.installationPrice !== "number") s.installationPrice = Number(s.installationPrice)||0;
+    if(typeof s.deliveryPrice !== "number") s.deliveryPrice = Number(s.deliveryPrice)||0;
+    if(typeof s.comment !== "string") s.comment = "";
+    return s;
+  }
+  function total(){
+    var groupsSum = state.groups.reduce(function(s,g){ return s + groupTotal(g); }, 0);
+    return groupsSum + (Number(state.installationPrice)||0) + (Number(state.deliveryPrice)||0);
+  }
+
+  // ---------------- document render ----------------
+  function renderDocument(){
+    var el = document.getElementById("document");
+    var benefitsHtml = FIXED.benefits.map(function(b){
+      return '<div class="benefit-card"><b>'+esc(b.title)+'</b><span>'+esc(b.desc)+'</span></div>';
+    }).join("");
+    var smetaHtml = state.groups.map(function(g){
+      var rows = g.items.map(function(it){
+        return '<div class="smeta-row"><div class="nm"><b>'+esc(it.name||"—")+'</b>'+(it.meta?'<span>'+esc(it.meta)+'</span>':'')+'</div><div class="pr">'+fmtPrice(displayItemPrice(it.price))+" "+esc(FIXED.currency)+'</div></div>';
+      }).join("");
+      return '<div class="smeta-group">'+
+        (g.photo ? '<img class="smeta-photo" src="'+esc(g.photo)+'" alt="'+esc(g.title||"")+'">' : '')+
+        '<div class="smeta-group-title">'+esc(g.title||"Без названия")+'</div>'+
+        rows+
+        '<div class="smeta-group-total">Итого по группе <b>'+fmtPrice(groupTotal(g))+' '+esc(FIXED.currency)+'</b></div>'+
+      '</div>';
+    }).join("");
+    // Installation and delivery ride along at cost, outside the materials markup — its own small
+    // group at the end, only shown when there's actually something to bill.
+    var serviceItems = [];
+    if(Number(state.installationPrice) > 0) serviceItems.push({name:"Монтаж", price:Number(state.installationPrice)});
+    if(Number(state.deliveryPrice) > 0) serviceItems.push({name:"Доставка", price:Number(state.deliveryPrice)});
+    if(serviceItems.length){
+      smetaHtml += '<div class="smeta-group"><div class="smeta-group-title">Монтаж и доставка</div>'+
+        serviceItems.map(function(it){
+          return '<div class="smeta-row"><div class="nm"><b>'+esc(it.name)+'</b></div><div class="pr">'+fmtPrice(it.price)+" "+esc(FIXED.currency)+'</div></div>';
+        }).join("")+
+      '</div>';
+    }
+    var commentHtml = "";
+    if(state.comment && state.comment.trim()){
+      commentHtml = '<div class="smeta-comment"><b>Обратите внимание:</b> '+esc(state.comment.trim())+'</div>';
+    }
+    var stepsHtml = FIXED.steps.map(function(s,i){
+      return '<div class="step-row"><div class="num">'+(i+1)+'</div><div class="txt"><b>'+esc(s.title)+'</b><span>'+esc(s.desc)+'</span></div></div>';
+    }).join("");
+
+    el.innerHTML =
+      '<div class="doc-topline">'+
+        '<div class="doc-logo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0 L14.2 9.8 L24 12 L14.2 14.2 L12 24 L9.8 14.2 L0 12 L9.8 9.8 Z"/></svg><div class="word">ARTEC<em>O</em>.</div></div>'+
+        '<div class="doc-kpno">КП № '+esc(state.number||"—")+'<br>'+esc(fmtDate(state.date))+'</div>'+
+      '</div>'+
+      '<div class="doc-eyebrow">Коммерческое предложение</div>'+
+      '<h1 class="doc-title">'+esc(state.projectTitle||"Название проекта")+'</h1>'+
+      '<p class="doc-intro">'+esc(FIXED.intro)+'</p>'+
+      '<div class="doc-metabar">'+
+        '<div class="mb-row"><span class="mb-label">Клиент</span><b>'+esc(state.clientName||"—")+'</b></div>'+
+        '<div class="mb-row"><span class="mb-label">Объект</span><b>'+esc(state.objectAddress||"—")+'</b></div>'+
+      '</div>'+
+      '<div class="doc-section"><div class="doc-h">Почему Артеко</div><div class="benefits-grid">'+benefitsHtml+'</div></div>'+
+      '<div class="smeta-block"><div class="doc-h">Смета</div>'+smetaHtml+'</div>'+
+      commentHtml+
+      '<div class="doc-total"><div class="lbl">Итого по смете</div><div class="num">'+fmtPrice(total())+' '+esc(FIXED.currency)+'</div><div class="note">'+esc(FIXED.totalNote)+'</div></div>'+
+      '<div class="doc-section"><div class="doc-h">Что дальше</div>'+stepsHtml+'</div>'+
+      '<a class="doc-instabox" href="https://instagram.com/'+esc(FIXED.instagram)+'" target="_blank" rel="noopener">'+
+        '<div class="ig-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg></div>'+
+        '<div class="ig-txt"><b>'+esc(FIXED.instagramHeadline)+'</b><span>'+esc(FIXED.instagramSubtext)+'</span></div>'+
+        '<div class="ig-cta">@'+esc(FIXED.instagram)+' →</div>'+
+      '</a>'+
+      '<div class="doc-footer"><div>'+esc(FIXED.footerCity)+'</div></div>';
+  }
+
+  // ---------------- editor render ----------------
+  function bindText(input, path, sub){
+    input.value = sub!==undefined ? state[path][sub] : state[path];
+    input.addEventListener("input", function(){
+      if(sub!==undefined){ state[path][sub] = input.value; } else { state[path] = input.value; }
+      renderDocument(); scheduleSave();
+    });
+  }
+
+  // ----- smeta groups -----
+  function renderGroups(){
+    var box = document.getElementById("groupsBox");
+    box.innerHTML = state.groups.map(function(g,gi){
+      return '<div class="group-card" data-gi="'+gi+'">'+
+        '<div class="group-head">'+
+          '<input type="text" class="grp-title" placeholder="Название группы (напр. Кухня, Шкаф)" value="'+esc(g.title)+'">'+
+          '<button type="button" class="rm-btn grp-rm" title="Удалить группу">✕</button>'+
+        '</div>'+
+        '<div class="group-photo-row">'+
+          (g.photo ? '<img class="group-photo-thumb" src="'+esc(g.photo)+'">' : '')+
+          '<div class="group-photo-controls">'+
+            '<label class="btn small"><span class="photo-btn-label">'+(g.photo?'Заменить фото':'Загрузить фото рендера')+'</span><input type="file" accept="image/*" class="photo-file" style="display:none"></label>'+
+            (g.photo ? '<button type="button" class="btn small danger-ghost photo-clear">Удалить фото</button>' : '')+
+          '</div>'+
+          '<input type="text" class="photo-url" placeholder="или вставьте ссылку на фото" value="'+(g.photo && g.photo.indexOf("data:")!==0 ? esc(g.photo) : "")+'">'+
+          '<div class="photo-hint">Фото сжимается и загружается на хостинг — в ссылку попадает только короткий адрес.</div>'+
+        '</div>'+
+        '<div class="items-in-group" id="itemsBox-'+gi+'"></div>'+
+        '<button type="button" class="add-row add-item-btn" data-gi="'+gi+'">+ Позиция в эту группу</button>'+
+        '<div class="group-total-preview">Итого по группе <b id="groupTotal-'+gi+'"></b></div>'+
+      '</div>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".group-card"), function(card){
+      var gi = Number(card.dataset.gi);
+      card.querySelector(".grp-title").addEventListener("input", function(e){
+        state.groups[gi].title = e.target.value; renderDocument(); scheduleSave();
+      });
+      card.querySelector(".grp-rm").addEventListener("click", function(){
+        if(state.groups.length<=1){ alert("Должна остаться хотя бы одна группа сметы."); return; }
+        state.groups.splice(gi,1); renderGroups(); renderDocument(); scheduleSave();
+      });
+      card.querySelector(".add-item-btn").addEventListener("click", function(){
+        state.groups[gi].items.push({name:"", meta:"", price:0});
+        renderGroups(); renderDocument(); scheduleSave();
+      });
+      card.querySelector(".photo-file").addEventListener("change", function(e){
+        var file = e.target.files && e.target.files[0];
+        if(!file) return;
+        var labelSpan = card.querySelector(".photo-btn-label");
+        var prevLabel = labelSpan.textContent;
+        labelSpan.textContent = "Обработка…";
+        compressImage(file).then(function(dataUrl){
+          labelSpan.textContent = "Загрузка на хостинг…";
+          return uploadToCloudinary(dataUrl).catch(function(err){
+            // Cloudinary not configured yet (or the upload failed) — fall back to embedding the
+            // photo straight into the share link so the feature still works either way.
+            if(err && err.message === "not_configured") return dataUrl;
+            throw err;
+          });
+        }).then(function(url){
+          state.groups[gi].photo = url;
+          renderGroups(); renderDocument(); scheduleSave();
+        }).catch(function(){
+          labelSpan.textContent = prevLabel;
+          alert("Не удалось загрузить фото. Попробуйте ещё раз или вставьте ссылку вручную.");
+        });
+      });
+      var photoClearBtn = card.querySelector(".photo-clear");
+      if(photoClearBtn){
+        photoClearBtn.addEventListener("click", function(){
+          state.groups[gi].photo = "";
+          renderGroups(); renderDocument(); scheduleSave();
+        });
+      }
+      card.querySelector(".photo-url").addEventListener("input", function(e){
+        state.groups[gi].photo = e.target.value.trim();
+        renderDocument(); scheduleSave();
+        var row = card.querySelector(".group-photo-row");
+        var thumb = row.querySelector(".group-photo-thumb");
+        if(state.groups[gi].photo){
+          if(!thumb){
+            thumb = document.createElement("img");
+            thumb.className = "group-photo-thumb";
+            row.insertBefore(thumb, row.querySelector(".group-photo-controls"));
+          }
+          thumb.src = state.groups[gi].photo;
+        } else if(thumb){
+          thumb.remove();
+        }
+      });
+      renderGroupItems(gi);
+    });
+    updateTotalPreview();
+  }
+  // Fill these in once you've created a free Cloudinary account and an UNSIGNED upload preset
+  // (Settings → Upload → Upload presets → Add preset → Signing Mode: Unsigned). Both values are
+  // public identifiers, not secrets — safe to ship in client-side code.
+  var CLOUDINARY_CLOUD_NAME = "dn2f28hxv";
+  var CLOUDINARY_UPLOAD_PRESET = "vifmjwn9";
+  function uploadToCloudinary(dataUrl){
+    if(!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET){
+      return Promise.reject(new Error("not_configured"));
+    }
+    var fd = new FormData();
+    fd.append("file", dataUrl);
+    fd.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    return fetch("https://api.cloudinary.com/v1_1/"+CLOUDINARY_CLOUD_NAME+"/image/upload", {method:"POST", body:fd})
+      .then(function(r){ if(!r.ok) throw new Error("upload_failed"); return r.json(); })
+      .then(function(json){ return json.secure_url; });
+  }
+  // Uploads the compact proposal JSON itself as a raw Cloudinary asset, so the share link can be
+  // just a short id (server looks it up) instead of the whole proposal riding in the URL.
+  function uploadJsonToCloudinary(compactObj){
+    if(!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET){
+      return Promise.reject(new Error("not_configured"));
+    }
+    var blob = new Blob([JSON.stringify(compactObj)], {type:"application/json"});
+    var fd = new FormData();
+    fd.append("file", blob, "kp.json");
+    fd.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    return fetch("https://api.cloudinary.com/v1_1/"+CLOUDINARY_CLOUD_NAME+"/raw/upload", {method:"POST", body:fd})
+      .then(function(r){ if(!r.ok) throw new Error("upload_failed"); return r.json(); })
+      .then(function(json){ return String(json.public_id||"").replace(/\.json$/,""); });
+  }
+  var PHOTO_MAX_DIM = 1000, PHOTO_QUALITY = 0.75;
+  function compressImage(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onerror = function(){ reject(new Error("read")); };
+      reader.onload = function(){
+        var img = new Image();
+        img.onerror = function(){ reject(new Error("decode")); };
+        img.onload = function(){
+          var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          var scale = Math.min(1, PHOTO_MAX_DIM / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w*scale)), ch = Math.max(1, Math.round(h*scale));
+          var canvas = document.createElement("canvas");
+          canvas.width = cw; canvas.height = ch;
+          canvas.getContext("2d").drawImage(img, 0, 0, cw, ch);
+          resolve(canvas.toDataURL("image/jpeg", PHOTO_QUALITY));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  function renderGroupItems(gi){
+    var box = document.getElementById("itemsBox-"+gi);
+    if(!box) return;
+    var items = state.groups[gi].items;
+    box.innerHTML = items.map(function(it,i){
+      return '<div class="item-row" data-i="'+i+'">'+
+        '<div class="top-line">'+
+          '<input type="text" class="it-name" placeholder="Название (напр. Столешница кварц)" value="'+esc(it.name)+'">'+
+          '<input type="text" class="it-meta" placeholder="Ед. изм. — необязательно" value="'+esc(it.meta)+'">'+
+        '</div>'+
+        '<div class="price-line">'+
+          '<input type="number" class="it-price" placeholder="Цена" value="'+(it.price!=null?it.price:"")+'" step="0.01">'+
+          '<button type="button" class="rm-btn" title="Удалить позицию">✕</button>'+
+        '</div>'+
+      '</div>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".item-row"), function(row){
+      var i = Number(row.dataset.i);
+      row.querySelector(".it-name").addEventListener("input", function(e){ items[i].name = e.target.value; renderDocument(); scheduleSave(); });
+      row.querySelector(".it-meta").addEventListener("input", function(e){ items[i].meta = e.target.value; renderDocument(); scheduleSave(); });
+      row.querySelector(".it-price").addEventListener("input", function(e){ items[i].price = parseFloat(e.target.value)||0; renderDocument(); updateTotalPreview(); scheduleSave(); });
+      row.querySelector(".rm-btn").addEventListener("click", function(){ items.splice(i,1); renderGroupItems(gi); renderDocument(); updateTotalPreview(); scheduleSave(); });
+    });
+  }
+  function updateTotalPreview(){
+    var totalEl = document.getElementById("totalPreviewNum");
+    if(totalEl) totalEl.textContent = fmtPrice(total()) + " " + FIXED.currency;
+    state.groups.forEach(function(g,gi){
+      var el = document.getElementById("groupTotal-"+gi);
+      if(el) el.textContent = fmtPrice(groupTotal(g)) + " " + FIXED.currency;
+    });
+  }
+
+  function buildEditor(){
+    var editor = document.getElementById("editor");
+    editor.innerHTML =
+      '<div class="field-group">'+
+        '<div class="fg-title">Шапка КП<div class="rule"></div></div>'+
+        '<div class="row2 field">'+
+          '<div><label class="lbl">№ КП</label><input type="text" id="f_number"></div>'+
+          '<div><label class="lbl">Дата</label><input type="date" id="f_date"></div>'+
+        '</div>'+
+        '<div class="field"><label class="lbl">Клиент</label><input type="text" id="f_client"></div>'+
+        '<div class="field"><label class="lbl">Объект</label><input type="text" id="f_object"></div>'+
+        '<div class="field"><label class="lbl">Название проекта</label><input type="text" id="f_title"></div>'+
+      '</div>'+
+
+      '<div class="field-group">'+
+        '<div class="fg-title">Смета — по группам<div class="rule"></div></div>'+
+        '<div id="groupsBox"></div>'+
+        '<button type="button" class="add-row" id="addGroup">+ Добавить группу (напр. Кухня, Шкаф)</button>'+
+        '<div class="row2 field" style="margin-top:14px;">'+
+          '<div><label class="lbl">Монтаж</label><input type="number" id="f_installation" placeholder="0"></div>'+
+          '<div><label class="lbl">Доставка</label><input type="number" id="f_delivery" placeholder="0"></div>'+
+        '</div>'+
+        '<div class="field"><label class="lbl">Наценка на материалы, %</label><input type="number" id="f_markup" placeholder="напр. 15"></div>'+
+        '<div class="hint" style="margin-bottom:10px;">Наценка автоматически добавляется к ценам всех позиций смет, кроме монтажа и доставки. В ссылке для клиента виден только готовый результат — без упоминания процента.</div>'+
+        '<div class="field"><label class="lbl">Комментарий к смете</label><textarea id="f_comment" rows="2" placeholder="напр. В смету не входит столешница и техника"></textarea></div>'+
+        '<div class="total-preview"><span>Итого по смете</span><b id="totalPreviewNum">0</b></div>'+
+      '</div>'+
+
+      '<div class="actions-sticky">'+
+        '<button class="btn primary" id="saveHistBtn">Сохранить КП в историю</button>'+
+        '<button class="btn accent" id="clientLinkBtn">Получить ссылку для клиента</button>'+
+        '<div id="linkResult"></div>'+
+        '<div class="hint">Ссылка короткая — работает сама по себе, без Claude, просто скопируйте и отправьте.</div>'+
+      '</div>';
+
+    bindText(document.getElementById("f_number"), "number");
+    bindText(document.getElementById("f_date"), "date");
+    bindText(document.getElementById("f_client"), "clientName");
+    bindText(document.getElementById("f_object"), "objectAddress");
+    bindText(document.getElementById("f_title"), "projectTitle");
+    bindText(document.getElementById("f_comment"), "comment");
+
+    renderGroups();
+
+    var installInput = document.getElementById("f_installation");
+    installInput.value = state.installationPrice || "";
+    installInput.addEventListener("input", function(){
+      state.installationPrice = parseFloat(installInput.value)||0;
+      renderDocument(); updateTotalPreview(); scheduleSave();
+    });
+    var deliveryInput = document.getElementById("f_delivery");
+    deliveryInput.value = state.deliveryPrice || "";
+    deliveryInput.addEventListener("input", function(){
+      state.deliveryPrice = parseFloat(deliveryInput.value)||0;
+      renderDocument(); updateTotalPreview(); scheduleSave();
+    });
+    var markupInput = document.getElementById("f_markup");
+    markupInput.value = state.markupPercent || "";
+    markupInput.addEventListener("input", function(){
+      state.markupPercent = parseFloat(markupInput.value)||0;
+      renderDocument(); updateTotalPreview(); scheduleSave();
+    });
+
+    document.getElementById("addGroup").addEventListener("click", function(){
+      state.groups.push({title:"", items:[{name:"", meta:"", price:0}], photo:""});
+      renderGroups(); renderDocument(); scheduleSave();
+    });
+    document.getElementById("saveHistBtn").addEventListener("click", saveToHistory);
+    document.getElementById("clientLinkBtn").addEventListener("click", function(){ makeClientLink(state, "linkResult"); });
+  }
+
+  // ---------------- link encoding (no server, no Claude — pure client-side) ----------------
+  function base64UrlEncode(bytes){
+    var binary = "";
+    for(var i=0;i<bytes.length;i++){ binary += String.fromCharCode(bytes[i]); }
+    return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+  }
+  function base64UrlDecode(str){
+    str = str.replace(/-/g,"+").replace(/_/g,"/");
+    while(str.length % 4){ str += "="; }
+    var binary = atob(str);
+    var bytes = new Uint8Array(binary.length);
+    for(var i=0;i<binary.length;i++){ bytes[i] = binary.charCodeAt(i); }
+    return bytes;
+  }
+  // Pack to short array tuples (no repeated field names) before compressing — keeps the share link shorter.
+  // Only the per-proposal fields travel in the link; brand content (FIXED) renders locally on the other end.
+  function toCompact(s){
+    var pct = Number(s.markupPercent)||0;
+    return {
+      n:s.number, d:s.date, c:s.clientName, o:s.objectAddress, t:s.projectTitle,
+      // Item prices travel already-marked-up — the percentage itself never does, so a client
+      // link never reveals that a margin was applied, only the final numbers.
+      gr:(s.groups||[]).map(function(g){ return [g.title, (g.items||[]).map(function(it){ return [it.name, it.meta, applyMarkup(it.price, pct)]; }), g.photo||""]; }),
+      ins: Number(s.installationPrice)||0,
+      del: Number(s.deliveryPrice)||0,
+      cm: s.comment||""
+    };
+  }
+  function fromCompact(c){
+    return normalizeState({
+      number:c.n, date:c.d, clientName:c.c, objectAddress:c.o, projectTitle:c.t,
+      groups:(c.gr||[]).map(function(a){ return {title:a[0], items:(a[1]||[]).map(function(it){ return {name:it[0], meta:it[1], price:it[2]}; }), photo:a[2]||""}; }),
+      installationPrice: c.ins||0,
+      deliveryPrice: c.del||0,
+      comment: c.cm||""
+      // markupPercent deliberately omitted: prices above are already final, and normalizeState
+      // defaults it to 0 so displayItemPrice() never applies a second markup on top.
+    });
+  }
+  function encodeStateToHash(data){
+    var json = JSON.stringify(toCompact(data));
+    var bytes = new TextEncoder().encode(json);
+    if(window.CompressionStream){
+      try{
+        var cs = new CompressionStream("gzip");
+        var writer = cs.writable.getWriter();
+        writer.write(bytes); writer.close();
+        return new Response(cs.readable).arrayBuffer().then(function(buf){
+          return "g" + base64UrlEncode(new Uint8Array(buf));
+        }).catch(function(){ return "r" + base64UrlEncode(bytes); });
+      }catch(e){}
+    }
+    return Promise.resolve("r" + base64UrlEncode(bytes));
+  }
+  function decodeHashToState(hash){
+    var flag = hash.charAt(0);
+    var bytes = base64UrlDecode(hash.slice(1));
+    if(flag === "g"){
+      if(!window.DecompressionStream){ return Promise.reject(new Error("unsupported")); }
+      var ds = new DecompressionStream("gzip");
+      var writer = ds.writable.getWriter();
+      writer.write(bytes); writer.close();
+      return new Response(ds.readable).arrayBuffer().then(function(buf){
+        return fromCompact(JSON.parse(new TextDecoder().decode(new Uint8Array(buf))));
+      });
+    }
+    return Promise.resolve(fromCompact(JSON.parse(new TextDecoder().decode(bytes))));
+  }
+  function buildShareUrl(encoded){
+    return location.origin + location.pathname + "#kp=" + encoded;
+  }
+  function copyToClipboard(text){
+    if(!navigator.clipboard || !navigator.clipboard.writeText) return Promise.resolve(false);
+    return navigator.clipboard.writeText(text).then(function(){ return true; }).catch(function(){ return false; });
+  }
+  // A hash id, not a path — this needs no server routing at all (a static host, or none of the
+  // deploy ever knowing "/k/" exists, works identically): the browser never sends a hash to the
+  // server, so any host that can serve this one file can serve every one of these links.
+  function buildShortUrl(shortId){
+    return location.origin + location.pathname + "#k=" + shortId;
+  }
+  // Short id backed by a Cloudinary-hosted JSON file when configured; falls back to the older
+  // self-contained hash link otherwise.
+  function makeClientLink(data, resultElId){
+    var box = resultElId ? document.getElementById(resultElId) : null;
+    if(box) box.innerHTML = '<div class="linkbox">Готовим ссылку…</div>';
+    uploadJsonToCloudinary(toCompact(data)).then(function(shortId){
+      return buildShortUrl(shortId);
+    }).catch(function(){
+      return encodeStateToHash(data).then(function(encoded){ return buildShareUrl(encoded); });
+    }).then(function(url){
+      copyToClipboard(url).then(function(copied){
+        if(box){
+          box.innerHTML = '<div class="linkbox">'+(copied ? "Ссылка скопирована в буфер обмена:" : "Скопируйте ссылку вручную:")+'<br><b>'+esc(url)+'</b></div>';
+        } else {
+          alert((copied ? "Ссылка скопирована:\n" : "Ссылка:\n") + url);
+        }
+      });
+    });
+  }
+
+  // ---------------- persistence (per-browser — each teammate keeps their own drafts/history) ----------------
+  function setStatus(msg){
+    var el = document.getElementById("saveStatus");
+    if(el) el.textContent = msg;
+  }
+  function scheduleSave(){
+    setStatus("сохранение…");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){
+      try{ localStorage.setItem(LS_DRAFT, JSON.stringify(state)); setStatus("черновик сохранён"); }
+      catch(e){ setStatus("не удалось сохранить"); }
+      setTimeout(function(){ setStatus(""); }, 2000);
+    }, 500);
+  }
+  function saveToHistory(){
+    if(!state.number){ alert("Укажите номер КП."); return; }
+    var num = state.number;
+    var payload = JSON.parse(JSON.stringify(state));
+    payload.savedAt = new Date().toISOString();
+    var list = [];
+    try{ list = JSON.parse(localStorage.getItem(LS_HISTORY)||"[]"); }catch(e){}
+    list = list.filter(function(p){ return p.number !== num; });
+    list.unshift(payload);
+    try{ localStorage.setItem(LS_HISTORY, JSON.stringify(list)); }catch(e){}
+    var n = parseInt(num,10);
+    if(!isNaN(n) && n >= counterNext){
+      counterNext = n+1;
+      try{ localStorage.setItem(LS_COUNTER, String(counterNext)); }catch(e){}
+    }
+    setStatus("КП № "+num+" сохранён");
+    setTimeout(function(){ setStatus(""); }, 2500);
+  }
+  function loadHistoryList(){
+    var list = [];
+    try{ list = JSON.parse(localStorage.getItem(LS_HISTORY)||"[]"); }catch(e){}
+    var box = document.getElementById("histList");
+    if(!list.length){ box.innerHTML = '<div class="hist-empty">Пока нет сохранённых КП в этом браузере.</div>'; return; }
+    box.innerHTML = list.map(function(p,i){
+      return '<div class="hist-item" data-i="'+i+'">'+
+        '<div class="n">КП № '+esc(p.number)+' · '+esc(fmtDate(p.date))+'</div>'+
+        '<div class="t">'+esc(p.projectTitle||"Без названия")+'</div>'+
+        '<div class="m">'+esc(p.clientName||"—")+'</div>'+
+        '<div class="row"><button class="btn small open-hist">Открыть</button><button class="btn small link-hist">Ссылка</button></div>'+
+        '<div data-slot="'+i+'"></div>'+
+      '</div>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".hist-item"), function(row){
+      var i = Number(row.dataset.i);
+      row.querySelector(".open-hist").addEventListener("click", function(){
+        state = normalizeState(JSON.parse(JSON.stringify(list[i])));
+        buildEditor(); renderDocument();
+        document.getElementById("historyPanel").classList.remove("open");
+      });
+      row.querySelector(".link-hist").addEventListener("click", function(){
+        var slot = row.querySelector('[data-slot="'+i+'"]');
+        slot.innerHTML = '<div class="linkbox">Готовим ссылку…</div>';
+        uploadJsonToCloudinary(toCompact(list[i])).then(function(shortId){
+          return buildShortUrl(shortId);
+        }).catch(function(){
+          return encodeStateToHash(list[i]).then(function(encoded){ return buildShareUrl(encoded); });
+        }).then(function(url){
+          copyToClipboard(url).then(function(copied){
+            slot.innerHTML = '<div class="linkbox">'+(copied ? "Скопировано: " : "")+esc(url)+'</div>';
+          });
+        });
+      });
+    });
+  }
+
+  // ---------------- top bar / global actions ----------------
+  document.getElementById("previewPrintBtn").addEventListener("click", function(){ window.print(); });
+  document.getElementById("historyBtn").addEventListener("click", function(){
+    loadHistoryList();
+    document.getElementById("historyPanel").classList.add("open");
+  });
+  document.getElementById("closeHist").addEventListener("click", function(){
+    document.getElementById("historyPanel").classList.remove("open");
+  });
+  document.getElementById("newBtn").addEventListener("click", function(){
+    if(!confirm("Начать новый КП? Текущий черновик будет заменён (сохранённая история не пострадает).")) return;
+    var keepMarkup = state.markupPercent;
+    state = defaultState();
+    state.number = String(counterNext);
+    state.clientName = "Имя клиента";
+    state.objectAddress = "Адрес объекта";
+    state.projectTitle = "Название проекта";
+    state.groups = [{title:"", items:[{name:"", meta:"", price:0}]}];
+    state.markupPercent = keepMarkup;
+    state.installationPrice = 0;
+    state.deliveryPrice = 0;
+    state.comment = "";
+    buildEditor(); renderDocument(); scheduleSave();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".mobile-tabs button"), function(b){
+    b.addEventListener("click", function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".mobile-tabs button"), function(x){ x.classList.remove("active"); });
+      b.classList.add("active");
+      document.getElementById("layout").setAttribute("data-mv", b.dataset.view);
+    });
+  });
+
+  // ---------------- view mode (what a client opens via a #kp= link) ----------------
+  function enterViewMode(sharedState){
+    state = normalizeState(sharedState);
+    document.body.classList.add("view-mode");
+    document.getElementById("layout").setAttribute("data-mv", "doc"); // no editor exists in view mode — force the document tab so it isn't hidden on narrow screens
+    document.getElementById("viewBadge").hidden = false;
+    document.getElementById("zoomLabel").hidden = true;
+    document.title = "КП — " + (sharedState.projectTitle || "АРТЕКО");
+    renderDocument();
+  }
+
+  function showBrokenLink(){
+    document.body.classList.add("view-mode");
+    document.getElementById("document").innerHTML =
+      '<div style="padding:40px;text-align:center;color:var(--doc-soft);font-size:14px;">Не удалось открыть предложение — ссылка повреждена, устарела, либо браузер слишком старый. Попробуйте обновить браузер.</div>';
+  }
+
+  // ---------------- init ----------------
+  function init(){
+    var hash = location.hash || "";
+    if(hash.indexOf("#k=") === 0){
+      var shortId = hash.slice(3);
+      fetch("https://res.cloudinary.com/"+CLOUDINARY_CLOUD_NAME+"/raw/upload/"+shortId+".json")
+        .then(function(r){ if(!r.ok) throw new Error("not_found"); return r.json(); })
+        .then(function(compact){ enterViewMode(fromCompact(compact)); })
+        .catch(showBrokenLink);
+      return;
+    }
+    if(hash.indexOf("#kp=") === 0){
+      decodeHashToState(hash.slice(4)).then(function(shared){
+        enterViewMode(shared);
+      }).catch(showBrokenLink);
+      return;
+    }
+
+    try{
+      var savedCounter = parseInt(localStorage.getItem(LS_COUNTER),10);
+      if(!isNaN(savedCounter)) counterNext = savedCounter;
+    }catch(e){}
+    try{
+      var savedDraft = localStorage.getItem(LS_DRAFT);
+      if(savedDraft){
+        var d = JSON.parse(savedDraft);
+        if(d && d.groups) state = normalizeState(d);
+      } else {
+        state.number = String(counterNext);
+      }
+    }catch(e){}
+
+    buildEditor();
+    renderDocument();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
