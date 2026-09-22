@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS items (
   stock_qty NUMERIC,
   notes TEXT DEFAULT '',
   image_url TEXT DEFAULT '',
+  photos JSONB NOT NULL DEFAULT '[]',
   articles JSONB NOT NULL DEFAULT '[]',
   links JSONB NOT NULL DEFAULT '[]',
   price_history JSONB NOT NULL DEFAULT '[]',
@@ -73,6 +74,7 @@ INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS services_currency_symbol TEXT NOT NULL DEFAULT '₾';
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS services_seeded BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS services_notice TEXT NOT NULL DEFAULT '';
+ALTER TABLE items ADD COLUMN IF NOT EXISTS photos JSONB NOT NULL DEFAULT '[]';
 
 -- ===================================================================
 -- Прайс-лист услуг для монтажников + генератор ТЗ (технических заданий по монтажу, не

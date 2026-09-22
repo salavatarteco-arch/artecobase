@@ -648,9 +648,11 @@ function emptyItem() {
     pricingMode: cat?.pricingMode || 'direct',
     priceSheet: null, heightM: null, widthM: null, thicknessMm: null,
     cost: 0, markupPercent: null, retailOverride: null, stockQty: null,
-    notes: '', articles: [], links: [], imageUrl: '',
+    notes: '', articles: [], links: [], imageUrl: '', photos: [],
   };
 }
+
+const ITEM_PHOTO_MAX_COUNT = 8;
 
 // Сжимаем фото на клиенте перед сохранением — оно попадает прямо в позицию
 // (в базе, в списке позиций), поэтому держим его небольшим: до 480px по
@@ -686,6 +688,7 @@ function compressItemPhoto(file) {
 // живёт в адресной строке (#item=ID) — можно поделиться ссылкой, обновить
 // страницу или нажать "назад" в браузере, карточка откроется/закроется сама.
 let detailItem = null;
+let detailActivePhoto = 0;
 
 async function openItemDetail(id, opts = {}) {
   let item = state.items.find((i) => i.id === id);
@@ -698,6 +701,7 @@ async function openItemDetail(id, opts = {}) {
     }
   }
   detailItem = { ...item, files: [] };
+  detailActivePhoto = 0;
   if (!opts.skipHash) location.hash = `item=${id}`;
   renderItemDetail();
   openModal('item-detail');
@@ -745,12 +749,17 @@ function renderItemDetail() {
       }).join('')
     : `<span class="muted">Ссылок нет.</span>`;
 
+  const photos = it.photos && it.photos.length ? it.photos : (it.imageUrl ? [{ id: 'legacy', url: it.imageUrl }] : []);
+  if (detailActivePhoto >= photos.length) detailActivePhoto = 0;
+  const mainPhoto = photos[detailActivePhoto];
+
   document.getElementById('item-detail-body').innerHTML = `
     <div class="pd-layout">
       <div>
-        ${it.imageUrl
-          ? `<img class="pd-photo" src="${it.imageUrl}" alt="" />`
+        ${mainPhoto
+          ? `<img class="pd-photo" id="pd-main-photo" src="${mainPhoto.url}" alt="" />`
           : `<div class="pd-photo">${icon('box', 'icon-lg')}</div>`}
+        ${photos.length > 1 ? `<div class="pd-thumbs">${photos.map((p, i) => `<img class="pd-thumb${i === detailActivePhoto ? ' active' : ''}" data-pd-thumb="${i}" src="${p.url}" alt="" />`).join('')}</div>` : ''}
         <div class="pd-crumb">${escapeHtml(cat ? cat.name : '')}${it.subcategory ? ' · ' + escapeHtml(it.subcategory) : ''}</div>
       </div>
       <div class="pd-main">
@@ -781,6 +790,12 @@ function renderItemDetail() {
     </div>
   `;
 
+  document.querySelectorAll('[data-pd-thumb]').forEach((el) => {
+    el.addEventListener('click', () => {
+      detailActivePhoto = Number(el.dataset.pdThumb);
+      renderItemDetail();
+    });
+  });
   document.querySelectorAll('[data-detail-parse-link]').forEach((b) => {
     b.addEventListener('click', async () => {
       b.classList.add('spinning');
@@ -861,21 +876,9 @@ function renderItemModalBody() {
   const pricing = computeClientPricing(modalItem, settings);
 
   body.innerHTML = `
-    <div class="photo-row">
-      <div class="photo-thumb-wrap" id="photo-thumb-wrap">
-        ${modalItem.imageUrl
-          ? `<img class="photo-thumb" id="photo-thumb-img" src="${modalItem.imageUrl}" alt="" />`
-          : `<div class="photo-thumb photo-thumb-empty" id="photo-thumb-img">${icon('box', 'icon-lg')}</div>`}
-      </div>
-      <div class="photo-controls">
-        <label class="btn btn-ghost btn-block">
-          <span id="photo-upload-label">${modalItem.imageUrl ? 'Заменить фото' : 'Добавить фото'}</span>
-          <input type="file" accept="image/*" id="f-photo-file" hidden />
-        </label>
-        <button type="button" class="btn btn-ghost btn-block" id="btn-photo-clear" ${modalItem.imageUrl ? '' : 'hidden'}>Удалить фото</button>
-        <span class="hint">Фото сжимается прямо в браузере, отдельно загружать никуда не нужно.</span>
-      </div>
-    </div>
+    <div class="section-title"><span>Фотографии</span></div>
+    <div class="photo-gallery" id="photo-gallery"></div>
+    <span class="hint">Фото сжимаются прямо в браузере, отдельно загружать никуда не нужно. До ${ITEM_PHOTO_MAX_COUNT} штук на позицию.</span>
 
     <div class="field-row">
       <label class="field"><span>Название</span><input id="f-name" value="${escapeHtml(modalItem.name)}" placeholder="Например: H1344 ST9 Дуб" /></label>
@@ -947,6 +950,7 @@ function renderItemModalBody() {
     <label class="field"><span>Примечания</span><textarea id="f-notes" rows="2">${escapeHtml(modalItem.notes)}</textarea></label>
   `;
 
+  renderPhotoGallery();
   renderArticlesEditor();
   renderLinksEditor();
   renderFilesEditor();
@@ -968,26 +972,6 @@ function renderItemModalBody() {
   });
   const overrideInput = document.getElementById('f-retailOverride');
   if (overrideInput) overrideInput.addEventListener('input', () => { syncFormIntoModalItem(); refreshComputedBox(); });
-
-  document.getElementById('f-photo-file').addEventListener('change', async (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const label = document.getElementById('photo-upload-label');
-    const prevLabel = label.textContent;
-    label.textContent = 'Обработка…';
-    try {
-      const dataUrl = await compressItemPhoto(file);
-      modalItem.imageUrl = dataUrl;
-      updatePhotoPreview();
-    } catch (err) {
-      toast(err.message || 'Не удалось обработать фото', 'error');
-      label.textContent = prevLabel;
-    }
-  });
-  document.getElementById('btn-photo-clear').addEventListener('click', () => {
-    modalItem.imageUrl = '';
-    updatePhotoPreview();
-  });
 
   const docFileInput = document.getElementById('f-doc-file');
   if (docFileInput) docFileInput.addEventListener('change', (e) => {
@@ -1011,13 +995,52 @@ function renderItemModalBody() {
   });
 }
 
-function updatePhotoPreview() {
-  const wrap = document.getElementById('photo-thumb-wrap');
-  wrap.innerHTML = modalItem.imageUrl
-    ? `<img class="photo-thumb" id="photo-thumb-img" src="${modalItem.imageUrl}" alt="" />`
-    : `<div class="photo-thumb photo-thumb-empty" id="photo-thumb-img">${icon('box', 'icon-lg')}</div>`;
-  document.getElementById('photo-upload-label').textContent = modalItem.imageUrl ? 'Заменить фото' : 'Добавить фото';
-  document.getElementById('btn-photo-clear').hidden = !modalItem.imageUrl;
+function renderPhotoGallery() {
+  const wrap = document.getElementById('photo-gallery');
+  if (!wrap) return;
+  const photos = modalItem.photos || [];
+  const canAdd = photos.length < ITEM_PHOTO_MAX_COUNT;
+  wrap.innerHTML = `
+    ${photos.map((p, i) => `
+      <div class="photo-gallery-item">
+        <img src="${p.url}" alt="" />
+        <button type="button" class="photo-gallery-remove" data-remove-photo="${i}" title="Удалить фото">${icon('close')}</button>
+      </div>
+    `).join('')}
+    ${canAdd ? `
+      <label class="photo-gallery-add" id="photo-add-tile">
+        ${icon('plus', 'icon-lg')}
+        <span>Добавить фото</span>
+        <input type="file" accept="image/*" id="f-photo-file" hidden multiple />
+      </label>
+    ` : ''}
+  `;
+  wrap.querySelectorAll('[data-remove-photo]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.removePhoto);
+      modalItem.photos = (modalItem.photos || []).filter((_, i) => i !== idx);
+      renderPhotoGallery();
+    });
+  });
+  const fileInput = document.getElementById('f-photo-file');
+  if (fileInput) fileInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const room = ITEM_PHOTO_MAX_COUNT - (modalItem.photos || []).length;
+    const toProcess = files.slice(0, room);
+    if (files.length > room) toast(`Можно добавить не больше ${ITEM_PHOTO_MAX_COUNT} фото на позицию`, '');
+    const tile = document.getElementById('photo-add-tile');
+    if (tile) tile.querySelector('span').textContent = 'Обработка…';
+    try {
+      for (const file of toProcess) {
+        const dataUrl = await compressItemPhoto(file);
+        modalItem.photos = [...(modalItem.photos || []), { id: 'new-' + Math.random().toString(36).slice(2, 10), url: dataUrl }];
+      }
+    } catch (err) {
+      toast(err.message || 'Не удалось обработать фото', 'error');
+    }
+    renderPhotoGallery();
+  });
 }
 
 function refreshComputedBox() {

@@ -20,9 +20,24 @@ function rawDb() {
 // первому запросу. Без этого такой момент выглядел как случайный 500 при
 // создании позиции/обновлении цены, хотя повторный запрос сразу проходил.
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+// Лёгкие "самонакатывающиеся" миграции для колонок, добавленных уже после
+// первого деплоя — ADD COLUMN IF NOT EXISTS идемпотентен, поэтому безопасно
+// гонять его на каждом холодном старте (кешируем промис, чтобы не дублировать
+// в рамках одного тёплого инстанса).
+let schemaEnsured = null;
+function ensureSchema(client) {
+  if (!schemaEnsured) {
+    schemaEnsured = client`ALTER TABLE items ADD COLUMN IF NOT EXISTS photos JSONB NOT NULL DEFAULT '[]'`
+      .catch((err) => { schemaEnsured = null; throw err; });
+  }
+  return schemaEnsured;
+}
+
 function db() {
   const client = rawDb();
   return async function tagged(...args) {
+    await ensureSchema(client);
     try {
       return await client(...args);
     } catch (err) {
@@ -64,6 +79,7 @@ function rowToItem(r) {
     stockQty: r.stock_qty != null ? Number(r.stock_qty) : null,
     notes: r.notes || '',
     imageUrl: r.image_url || '',
+    photos: r.photos || [],
     articles: r.articles || [],
     links: r.links || [],
     priceHistory: r.price_history || [],
@@ -226,12 +242,13 @@ async function insertItem(item) {
     INSERT INTO items (
       id, category_id, subcategory, name, manufacturer, sku, unit, pricing_mode,
       price_sheet, height_m, width_m, thickness_mm, cost, markup_percent, retail_override,
-      stock_qty, notes, image_url, articles, links, price_history, created_at, updated_at
+      stock_qty, notes, image_url, photos, articles, links, price_history, created_at, updated_at
     ) VALUES (
       ${item.id}, ${item.categoryId}, ${item.subcategory}, ${item.name}, ${item.manufacturer},
       ${item.sku}, ${item.unit}, ${item.pricingMode}, ${item.priceSheet}, ${item.heightM},
       ${item.widthM}, ${item.thicknessMm}, ${item.cost}, ${item.markupPercent}, ${item.retailOverride},
-      ${item.stockQty}, ${item.notes}, ${item.imageUrl}, ${JSON.stringify(item.articles)},
+      ${item.stockQty}, ${item.notes}, ${item.imageUrl}, ${JSON.stringify(item.photos || [])},
+      ${JSON.stringify(item.articles)},
       ${JSON.stringify(item.links)}, ${JSON.stringify(item.priceHistory)}, ${item.createdAt}, ${item.updatedAt}
     )`;
   return item;
@@ -248,6 +265,7 @@ async function updateItemRow(id, patch) {
       width_m = ${merged.widthM}, thickness_mm = ${merged.thicknessMm}, cost = ${merged.cost},
       markup_percent = ${merged.markupPercent}, retail_override = ${merged.retailOverride},
       stock_qty = ${merged.stockQty}, notes = ${merged.notes}, image_url = ${merged.imageUrl},
+      photos = ${JSON.stringify(merged.photos || [])},
       articles = ${JSON.stringify(merged.articles)}, links = ${JSON.stringify(merged.links)},
       price_history = ${JSON.stringify(merged.priceHistory)}, updated_at = ${merged.updatedAt}
     WHERE id = ${id}`;

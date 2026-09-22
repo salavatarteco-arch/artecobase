@@ -98,7 +98,19 @@ function computePricing(item, settings) {
 
 function decorateItem(item, settings) {
   const pricing = computePricing(item, settings);
-  return { ...item, ...pricing };
+  // Фото могли быть добавлены до появления галереи (одно фото в imageUrl) —
+  // на чтение подстраховываемся, чтобы старые позиции не остались без фото.
+  const photos = (item.photos && item.photos.length)
+    ? item.photos
+    : (item.imageUrl ? [{ id: 'legacy', url: item.imageUrl }] : []);
+  return { ...item, ...pricing, photos, imageUrl: photos[0]?.url || '' };
+}
+
+function normalizePhotos(photos) {
+  if (!Array.isArray(photos)) return [];
+  return photos
+    .filter((p) => p && (typeof p === 'string' || p.url))
+    .map((p) => (typeof p === 'string' ? { id: nanoid(8), url: p } : { id: p.id || nanoid(8), url: p.url }));
 }
 
 function normalizeLinks(links) {
@@ -150,6 +162,7 @@ async function createItem(data) {
     stockQty: data.stockQty ?? null,
     notes: data.notes || '',
     imageUrl: data.imageUrl || '',
+    photos: normalizePhotos(data.photos && data.photos.length ? data.photos : (data.imageUrl ? [{ id: nanoid(8), url: data.imageUrl }] : [])),
     articles: data.articles || [], // [{label:'LTB', value:'000020833'}]
     links: normalizeLinks(data.links || []), // [{id,url,label,domain,autoParse,lastPrice,lastParsedAt,status,statusMessage}]
     createdAt: now(),
@@ -165,6 +178,7 @@ async function updateItem(id, patch) {
   if (!prev) return null;
 
   if (patch.links) patch = { ...patch, links: normalizeLinks(patch.links) };
+  if (patch.photos) patch = { ...patch, photos: normalizePhotos(patch.photos) };
   const merged = { ...prev, ...patch, id, updatedAt: now() };
 
   // Если меняется себестоимость/цена плиты — пишем в историю цен.
@@ -190,7 +204,14 @@ async function deleteItem(id) {
 async function duplicateItem(id) {
   const src = await driver.getItemById(id);
   if (!src) return null;
-  const copy = { ...src, id: nanoid(10), name: `${src.name} (копия)`, createdAt: now(), updatedAt: now() };
+  const copy = {
+    ...src,
+    id: nanoid(10),
+    name: `${src.name} (копия)`,
+    photos: (src.photos || []).map((p) => ({ ...p, id: nanoid(8) })),
+    createdAt: now(),
+    updatedAt: now(),
+  };
   await driver.insertItem(copy);
   return getItem(copy.id);
 }
