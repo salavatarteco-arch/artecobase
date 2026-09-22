@@ -256,6 +256,7 @@ function renderTable() {
     <tr>
       <th>Название</th>
       <th>Артикул</th>
+      <th>Ед.</th>
       <th class="num">Себестоимость</th>
       <th class="num">Розничная цена</th>
       <th class="num">Остаток</th>
@@ -284,7 +285,7 @@ function renderTable() {
     groups[groupIndex.get(key)].rows.push(it);
   }
 
-  const colspan = isSheet ? 10 : 8;
+  const colspan = isSheet ? 10 : 9;
   let html = '';
   for (const group of groups) {
     if (group.key) {
@@ -374,7 +375,7 @@ function rowSheetHtml(it, symbol) {
       <td class="num"><strong>${fmtMoney(it.retailPrice, symbol)}</strong></td>
       <td>${linksCellHtml(it)}</td>
       <td class="muted-cell">${timeAgo(it.updatedAt)}</td>
-      <td>${rowActionsHtml(it.id)}</td>
+      <td>${rowActionsHtml(it.id, it.fileCount)}</td>
     </tr>`;
 }
 
@@ -391,19 +392,23 @@ function rowDirectHtml(it, symbol) {
     <tr data-item-id="${it.id}">
       <td class="name-cell">${nameCellHtml(it)}</td>
       <td class="muted-cell">${escapeHtml(articlesText(it))}</td>
+      <td class="muted-cell">${escapeHtml(it.unit || 'шт')}</td>
       <td class="num"><span class="editable" contenteditable data-field="cost" data-item="${it.id}">${it.cost ?? 0}</span></td>
       <td class="num"><strong>${fmtMoney(it.retailPrice, symbol)}</strong></td>
       <td class="num"><span class="editable" contenteditable data-field="stockQty" data-item="${it.id}">${it.stockQty ?? ''}</span></td>
       <td>${linksCellHtml(it)}</td>
       <td class="muted-cell">${timeAgo(it.updatedAt)}</td>
-      <td>${rowActionsHtml(it.id)}</td>
+      <td>${rowActionsHtml(it.id, it.fileCount)}</td>
     </tr>`;
 }
 
-function rowActionsHtml(id) {
+function rowActionsHtml(id, fileCount) {
+  const hasFiles = fileCount > 0;
   return `
     <div class="row-actions">
-      <button class="btn btn-icon btn-ghost" data-files-item="${id}" title="Файлы документации">${icon('paperclip')}</button>
+      <button class="btn btn-icon btn-ghost${hasFiles ? ' has-files' : ''}" data-files-item="${id}" title="${hasFiles ? `Файлы документации (${fileCount})` : 'Файлы документации'}">
+        ${icon('paperclip')}${hasFiles ? `<span class="file-count-badge">${fileCount}</span>` : ''}
+      </button>
       <button class="btn btn-icon btn-ghost" data-edit-item="${id}" title="Открыть карточку">${icon('edit')}</button>
       <button class="btn btn-icon btn-ghost" data-dup-item="${id}" title="Дублировать">${icon('copy')}</button>
       <button class="btn btn-icon btn-ghost" data-del-item="${id}" title="Удалить">${icon('trash')}</button>
@@ -960,12 +965,19 @@ function buildFileRow(f, onDeleted) {
     try {
       await api.del(`/api/item-files/${f.id}`);
       onDeleted(f.id);
+      refreshFileBadge();
       toast('Файл удалён');
     } catch (err) {
       toast(err.message, 'error');
     }
   });
   return row;
+}
+// Обновляет счётчик файлов у позиции в таблице (скрепка), не закрывая
+// открытое окно — иначе после добавления/удаления файла бейдж в строке
+// оставался бы устаревшим до следующей перезагрузки категории.
+function refreshFileBadge() {
+  loadItems().then(renderTable);
 }
 function renderFileList(container, files, emptyMessage, onDeleted) {
   container.innerHTML = files.length ? '' : `<span class="muted">${emptyMessage}</span>`;
@@ -1001,6 +1013,7 @@ async function uploadFileTo(itemId, file, onUploaded, labelEl) {
     if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Не удалось загрузить файл'); }
     const meta = await res.json();
     onUploaded(meta);
+    refreshFileBadge();
     toast('Файл добавлен', 'success');
   } catch (err) {
     toast(err.message, 'error');

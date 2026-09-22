@@ -44,13 +44,19 @@ async function deleteCategoryRow(id) {
   categories.set(categories.all().filter((c) => c.id !== id));
 }
 
+// Число прикреплённых файлов считаем на лету из коллекции itemFiles — чтобы
+// в списке позиций сразу было видно, у кого есть документация.
+function countFiles(itemId) {
+  return itemFiles.all().filter((f) => f.itemId === itemId).length;
+}
 async function listItems({ categoryId } = {}) {
   let list = items.all();
   if (categoryId) list = list.filter((i) => i.categoryId === categoryId);
-  return list;
+  return list.map((i) => ({ ...i, fileCount: countFiles(i.id) }));
 }
 async function getItemById(id) {
-  return items.all().find((i) => i.id === id) || null;
+  const item = items.all().find((i) => i.id === id) || null;
+  return item ? { ...item, fileCount: countFiles(id) } : null;
 }
 async function insertItem(item) {
   items.set([...items.all(), item]);

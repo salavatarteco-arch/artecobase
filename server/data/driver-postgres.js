@@ -67,6 +67,7 @@ function rowToItem(r) {
     articles: r.articles || [],
     links: r.links || [],
     priceHistory: r.price_history || [],
+    fileCount: r.file_count != null ? Number(r.file_count) : 0,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -198,14 +199,26 @@ async function deleteCategoryRow(id) {
 }
 
 // ---------- items ----------
+// Число прикреплённых файлов считаем тут же (LEFT JOIN на сгруппированный
+// подзапрос) — чтобы в списке позиций сразу было видно, у кого есть
+// документация, без отдельного запроса на каждую строку.
 async function listItems({ categoryId } = {}) {
   const rows = categoryId
-    ? await db()`SELECT * FROM items WHERE category_id = ${categoryId} ORDER BY created_at ASC`
-    : await db()`SELECT * FROM items ORDER BY created_at ASC`;
+    ? await db()`
+        SELECT items.*, COALESCE(fc.cnt, 0) AS file_count FROM items
+        LEFT JOIN (SELECT item_id, COUNT(*)::int AS cnt FROM item_files GROUP BY item_id) fc ON fc.item_id = items.id
+        WHERE items.category_id = ${categoryId} ORDER BY items.created_at ASC`
+    : await db()`
+        SELECT items.*, COALESCE(fc.cnt, 0) AS file_count FROM items
+        LEFT JOIN (SELECT item_id, COUNT(*)::int AS cnt FROM item_files GROUP BY item_id) fc ON fc.item_id = items.id
+        ORDER BY items.created_at ASC`;
   return rows.map(rowToItem);
 }
 async function getItemById(id) {
-  const rows = await db()`SELECT * FROM items WHERE id = ${id}`;
+  const rows = await db()`
+    SELECT items.*, COALESCE(fc.cnt, 0) AS file_count FROM items
+    LEFT JOIN (SELECT item_id, COUNT(*)::int AS cnt FROM item_files GROUP BY item_id) fc ON fc.item_id = items.id
+    WHERE items.id = ${id}`;
   return rows[0] ? rowToItem(rows[0]) : null;
 }
 async function insertItem(item) {

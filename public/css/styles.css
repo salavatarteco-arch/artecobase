@@ -229,8 +229,17 @@ button { font-family: inherit; }
 .btn-ghost:hover { border-color: var(--line); background: var(--surface); }
 .btn-danger { background: transparent; color: var(--danger); border-color: transparent; }
 .btn-danger:hover { background: var(--accent-dim); border-color: transparent; }
-.btn-icon { padding: 5px; }
+.btn-icon { padding: 5px; position: relative; }
 .btn-icon .icon { margin: 0; }
+.btn-icon.has-files { color: var(--green-fg); border-color: transparent; }
+.btn-icon.has-files:hover { background: var(--green-bg); }
+.file-count-badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 14px; height: 14px; padding: 0 3px; border-radius: 999px;
+  background: var(--green-fg); color: #fff;
+  font-size: 9px; font-weight: 700; line-height: 14px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
 .file-btn { cursor: pointer; }
