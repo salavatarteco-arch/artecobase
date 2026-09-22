@@ -12,6 +12,8 @@
 <body>
 <div id="app" class="app">
 
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
   <aside class="sidebar">
     <div class="brand">
       <svg class="brand-mark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0 L14.2 9.8 L24 12 L14.2 14.2 L12 24 L9.8 14.2 L0 12 L9.8 9.8 Z"/></svg>
@@ -19,6 +21,7 @@
         <strong>Прайс-лист</strong>
         <span>АРТЕКО · Тбилиси</span>
       </div>
+      <button class="btn btn-ghost btn-icon sidebar-close-btn" id="btn-close-sidebar" aria-label="Закрыть меню"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
     </div>
 
     <button class="btn btn-block" id="btn-add-category"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4V20"/><path d="M4 12H20"/></svg> Категория</button>
@@ -35,6 +38,7 @@
 
   <main class="main">
     <header class="topbar">
+      <button class="btn btn-ghost btn-icon mobile-menu-btn" id="btn-mobile-menu" aria-label="Меню категорий" title="Меню категорий"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7H20"/><path d="M4 12H20"/><path d="M4 17H20"/></svg></button>
       <div class="topbar-left">
         <h1 id="category-title">Загрузка…</h1>
         <span class="muted" id="category-meta"></span>

@@ -159,6 +159,8 @@ button { font-family: inherit; }
   padding-top: 12px; border-top: 1px solid var(--line);
 }
 
+.sidebar-backdrop { display: none; }
+
 /* ---------- Main ---------- */
 .main { display: flex; flex-direction: column; min-width: 0; }
 
@@ -387,7 +389,7 @@ button { font-family: inherit; }
   position: fixed; inset: 0;
   background: rgba(10,9,6,.45);
   display: flex; align-items: center; justify-content: center;
-  z-index: 50;
+  z-index: 70;
   padding: 24px;
 }
 .modal-backdrop[hidden] { display: none; }
@@ -588,9 +590,72 @@ button { font-family: inherit; }
 .toast.toast-success { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
+.sidebar-close-btn { display: none; margin-left: auto; flex: none; }
+.mobile-menu-btn { display: none; flex: none; }
+
+/* ---------- Мобильная адаптация ---------- */
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
+
+  .mobile-menu-btn { display: inline-flex; }
+
+  /* Сайдбар с категориями превращается в выезжающую слева панель поверх
+     контента — на телефоне для него просто нет места вторым столбцом. */
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 60;
+    width: 280px; max-width: 84vw;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    box-shadow: 12px 0 32px rgba(10,9,6,.25);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-close-btn { display: inline-flex; }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed; inset: 0; z-index: 59;
+    background: rgba(10,9,6,.45);
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .sidebar-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .topbar { padding: 12px 14px; gap: 10px; }
+  .topbar-left h1 { font-size: 16px; }
+  .topbar-right { width: 100%; }
+  .search-wrap { flex: 1 1 100%; }
+  .search-input { width: 100%; }
+
+  .stat-strip { padding: 12px 14px 0; gap: 8px; }
+  .table-scroll { padding: 0 14px 20px; }
+
+  /* Таблица остаётся полноценной таблицей (горизонтальный скролл), но
+     название позиции "прилипает" слева — иначе при скролле вправо не
+     видно, что за позицию редактируешь. overflow:hidden на .price-table
+     (нужен для скруглённых углов) ломает sticky — на мобильном отключаем. */
+  .price-table { overflow: visible; }
+  .price-table td.name-cell, .price-table th:first-child {
+    position: sticky; left: 0; z-index: 1;
+    background: var(--surface);
+  }
+  .price-table thead th:first-child { z-index: 3; background: var(--panel); }
+  .price-table tbody tr:hover td.name-cell { background: var(--panel); }
+  .price-table tbody tr.subcategory-row td { position: static; }
+  .price-table td.name-cell { max-width: 180px; }
+
+  /* Модалки на телефоне удобнее как шторка снизу на всю ширину, чем
+     маленькое окошко по центру экрана. */
+  .modal-backdrop { padding: 0; align-items: flex-end; }
+  .modal, .modal-sm, .modal-lg { width: 100%; max-width: 100%; max-height: 94vh; border-radius: 16px 16px 0 0; }
+
+  .field-row, .field-row-3 { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .stat-strip { grid-template-columns: 1fr 1fr; }
+  .topbar-right .btn { font-size: 12.5px; }
+  .modal-footer { flex-direction: column-reverse; align-items: stretch; }
+  .modal-footer .spacer { display: none; }
+  .modal-footer .btn { width: 100%; justify-content: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {

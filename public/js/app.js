@@ -168,6 +168,7 @@ function renderSidebar() {
       state.currentCategoryId = cat.id;
       state.search = '';
       document.getElementById('search-input').value = '';
+      closeSidebar();
       loadItems().then(() => { renderSidebar(); renderTopbar(); renderTable(); });
     });
     list.appendChild(el);
@@ -520,7 +521,10 @@ async function bulkParseCurrentCategory() {
 }
 
 // -------------------------------------------------------------- modals ----
-function openModal(id) { document.getElementById(`${id}-backdrop`).hidden = false; }
+function openModal(id) {
+  document.getElementById(`${id}-backdrop`).hidden = false;
+  closeSidebar(); // на мобильном модалка открывается поверх — выезжающую панель категорий прячем
+}
 function closeModal(id) {
   document.getElementById(`${id}-backdrop`).hidden = true;
   // Карточка товара живёт в адресной строке (#item=...) — закрывая её вручную,
@@ -1305,6 +1309,21 @@ document.getElementById('btn-delete-item').addEventListener('click', async () =>
   countItemsPerCategory();
   toast('Позиция удалена');
 });
+
+// ------------------------------------------------------ мобильное меню ---
+// На узких экранах список категорий уезжает в выезжающую панель поверх
+// контента (обычный grid-column для сайдбара там не работает — см. CSS).
+function openSidebar() {
+  document.querySelector('.sidebar').classList.add('open');
+  document.getElementById('sidebar-backdrop').classList.add('open');
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('open');
+}
+document.getElementById('btn-mobile-menu').addEventListener('click', openSidebar);
+document.getElementById('btn-close-sidebar').addEventListener('click', closeSidebar);
+document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
 
 // ------------------------------------------------------------- top-level ---
 document.getElementById('btn-add-category').addEventListener('click', openCategoryCreate);
