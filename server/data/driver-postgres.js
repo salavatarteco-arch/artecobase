@@ -130,6 +130,16 @@ function rowToProposalFileMeta(r) {
     createdAt: r.created_at,
   };
 }
+function rowToItemFileMeta(r) {
+  return {
+    id: r.id,
+    itemId: r.item_id,
+    filename: r.filename,
+    mimeType: r.mime_type,
+    size: r.size,
+    createdAt: r.created_at,
+  };
+}
 
 // ---------- settings ----------
 async function getSettings() {
@@ -232,6 +242,29 @@ async function updateItemRow(id, patch) {
 }
 async function deleteItemRow(id) {
   await db()`DELETE FROM items WHERE id = ${id}`;
+}
+
+// ---------- item files (документация) ----------
+async function listItemFiles(itemId) {
+  const rows = await db()`
+    SELECT id, item_id, filename, mime_type, size, created_at FROM item_files
+    WHERE item_id = ${itemId} ORDER BY created_at ASC`;
+  return rows.map(rowToItemFileMeta);
+}
+async function getItemFileById(id) {
+  const rows = await db()`SELECT * FROM item_files WHERE id = ${id}`;
+  if (!rows[0]) return null;
+  return { ...rowToItemFileMeta(rows[0]), dataBase64: rows[0].data_base64 };
+}
+async function insertItemFile(file) {
+  await db()`
+    INSERT INTO item_files (id, item_id, filename, mime_type, size, data_base64, created_at)
+    VALUES (${file.id}, ${file.itemId}, ${file.filename}, ${file.mimeType}, ${file.size},
+            ${file.dataBase64}, ${file.createdAt})`;
+  return file;
+}
+async function deleteItemFileRow(id) {
+  await db()`DELETE FROM item_files WHERE id = ${id}`;
 }
 
 // ---------- activity ----------
@@ -375,6 +408,7 @@ module.exports = {
   getSettings, setSettings,
   listCategories, insertCategory, updateCategoryRow, deleteCategoryRow,
   listItems, getItemById, insertItem, updateItemRow, deleteItemRow,
+  listItemFiles, getItemFileById, insertItemFile, deleteItemFileRow,
   listActivity, insertActivity,
   listServiceCategories, insertServiceCategory, updateServiceCategoryRow, deleteServiceCategoryRow,
   listServices, getServiceById, insertService, updateServiceRow, deleteServiceRow,

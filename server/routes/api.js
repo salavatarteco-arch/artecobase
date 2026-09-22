@@ -61,6 +61,42 @@ router.post('/items/:id/duplicate', h(async (req, res) => {
   res.status(201).json(copy);
 }));
 
+// ---------- Файлы документации у позиции (спецификации, сертификаты и т.п.) ----------
+// Тело запроса — сырые байты файла (без multipart, без доп. зависимостей).
+// Имя файла передаётся в заголовке X-Filename в encodeURIComponent.
+router.post('/items/:id/files', express.raw({ type: '*/*', limit: '16mb' }), h(async (req, res) => {
+  const item = await repo.getItem(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Позиция не найдена' });
+  if (!req.body || !req.body.length) return res.status(400).json({ error: 'Файл пуст' });
+  let filename = 'файл';
+  try { filename = decodeURIComponent(req.get('X-Filename') || 'файл'); } catch { filename = req.get('X-Filename') || 'файл'; }
+  try {
+    const meta = await repo.addItemFile(item.id, {
+      filename,
+      mimeType: req.get('Content-Type') || 'application/octet-stream',
+      buffer: req.body,
+    });
+    res.status(201).json(meta);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}));
+router.get('/items/:id/files', h(async (req, res) => {
+  res.json(await repo.listItemFiles(req.params.id));
+}));
+router.get('/item-files/:fileId', h(async (req, res) => {
+  const file = await repo.getItemFile(req.params.fileId);
+  if (!file) return res.status(404).json({ error: 'Файл не найден' });
+  const buf = Buffer.from(file.dataBase64, 'base64');
+  res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.filename)}"`);
+  res.send(buf);
+}));
+router.delete('/item-files/:fileId', h(async (req, res) => {
+  await repo.deleteItemFile(req.params.fileId);
+  res.status(204).end();
+}));
+
 // ---------- Links ----------
 router.post('/items/:id/links', h(async (req, res) => {
   const item = await repo.getItem(req.params.id);

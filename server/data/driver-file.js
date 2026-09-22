@@ -7,6 +7,7 @@ const { Collection } = require('./store-file');
 
 const categories = new Collection('categories', []);
 const items = new Collection('items', []);
+const itemFiles = new Collection('itemFiles', []);
 const settingsCol = new Collection('settings', null);
 const activity = new Collection('activity', []);
 
@@ -65,6 +66,24 @@ async function updateItemRow(id, patch) {
 }
 async function deleteItemRow(id) {
   items.set(items.all().filter((i) => i.id !== id));
+  itemFiles.set(itemFiles.all().filter((f) => f.itemId !== id));
+}
+
+// ---------- item files (документация) ----------
+async function listItemFiles(itemId) {
+  return itemFiles.all()
+    .filter((f) => f.itemId === itemId)
+    .map(({ dataBase64, ...meta }) => meta); // список — без содержимого
+}
+async function getItemFileById(id) {
+  return itemFiles.all().find((f) => f.id === id) || null;
+}
+async function insertItemFile(file) {
+  itemFiles.set([...itemFiles.all(), file]);
+  return file;
+}
+async function deleteItemFileRow(id) {
+  itemFiles.set(itemFiles.all().filter((f) => f.id !== id));
 }
 
 async function listActivity(limit = 100) {
@@ -170,6 +189,7 @@ module.exports = {
   getSettings, setSettings,
   listCategories, insertCategory, updateCategoryRow, deleteCategoryRow,
   listItems, getItemById, insertItem, updateItemRow, deleteItemRow,
+  listItemFiles, getItemFileById, insertItemFile, deleteItemFileRow,
   listActivity, insertActivity,
   listServiceCategories, insertServiceCategory, updateServiceCategoryRow, deleteServiceCategoryRow,
   listServices, getServiceById, insertService, updateServiceRow, deleteServiceRow,

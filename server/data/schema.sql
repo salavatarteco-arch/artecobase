@@ -139,6 +139,22 @@ CREATE TABLE IF NOT EXISTS proposal_files (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ===================================================================
+-- Файлы документации у позиций прайса материалов/фурнитуры (спецификации,
+-- сертификаты, инструкции и т.п.) — тот же подход, что и proposal_files
+-- выше: содержимое как base64 в базе, список отдаёт только метаданные.
+-- ===================================================================
+CREATE TABLE IF NOT EXISTS item_files (
+  id TEXT PRIMARY KEY,
+  item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  filename TEXT NOT NULL,
+  mime_type TEXT DEFAULT 'application/octet-stream',
+  size INT NOT NULL DEFAULT 0,
+  data_base64 TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_item_files_item ON item_files(item_id);
+
 CREATE INDEX IF NOT EXISTS idx_services_category ON services(category_id);
 CREATE INDEX IF NOT EXISTS idx_proposals_share_token ON proposals(share_token);
 CREATE INDEX IF NOT EXISTS idx_proposal_files_proposal ON proposal_files(proposal_id);

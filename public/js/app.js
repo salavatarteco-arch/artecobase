@@ -95,6 +95,12 @@ function fmtNum(n, digits = 2) {
   if (n == null || Number.isNaN(n)) return '—';
   return Number(n).toLocaleString('ru-RU', { maximumFractionDigits: digits });
 }
+function fmtBytes(n) {
+  if (n == null) return '';
+  if (n < 1024) return `${n} Б`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} КБ`;
+  return `${(n / (1024 * 1024)).toFixed(1)} МБ`;
+}
 function timeAgo(iso) {
   if (!iso) return 'никогда';
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -661,11 +667,18 @@ let modalItem = null; // рабочая копия редактируемой п
 
 function openItemModal(id) {
   modalItem = id ? { ...state.items.find((i) => i.id === id) } : emptyItem();
+  modalItem.files = [];
   state.editingItemId = id || null;
   document.getElementById('item-modal-title').textContent = id ? 'Редактирование позиции' : 'Новая позиция';
   document.getElementById('btn-delete-item').hidden = !id;
   renderItemModalBody();
   openModal('item-modal');
+  if (id) {
+    api.get(`/api/items/${id}/files`).then((files) => {
+      modalItem.files = files;
+      renderFilesEditor();
+    }).catch(() => {});
+  }
 }
 
 function renderItemModalBody() {
@@ -754,11 +767,18 @@ function renderItemModalBody() {
     </div>
     <div class="links-editor" id="links-editor"></div>
 
+    <div class="section-title">
+      <span>Документация</span>
+      ${modalItem.id ? `<label class="btn btn-ghost add-row-btn file-btn">+ файл<input type="file" id="f-doc-file" hidden /></label>` : ''}
+    </div>
+    <div class="files-editor" id="files-editor"></div>
+
     <label class="field"><span>Примечания</span><textarea id="f-notes" rows="2">${escapeHtml(modalItem.notes)}</textarea></label>
   `;
 
   renderArticlesEditor();
   renderLinksEditor();
+  renderFilesEditor();
 
   // events
   document.getElementById('f-pricing-sheet').addEventListener('change', (e) => {
@@ -796,6 +816,14 @@ function renderItemModalBody() {
   document.getElementById('btn-photo-clear').addEventListener('click', () => {
     modalItem.imageUrl = '';
     updatePhotoPreview();
+  });
+
+  const docFileInput = document.getElementById('f-doc-file');
+  if (docFileInput) docFileInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    uploadItemDocFile(file);
+    e.target.value = '';
   });
 
   document.getElementById('btn-add-article').addEventListener('click', () => {
@@ -901,6 +929,72 @@ function renderLinksEditor() {
     });
     wrap.appendChild(row);
   });
+}
+
+// Иконка по типу файла — просто по расширению, без лишней возни.
+function fileIcon(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) return 'box';
+  return 'download';
+}
+
+function renderFilesEditor() {
+  const wrap = document.getElementById('files-editor');
+  if (!wrap) return;
+  if (!modalItem.id) {
+    wrap.innerHTML = `<span class="muted">Сохраните позицию, чтобы прикреплять файлы документации.</span>`;
+    return;
+  }
+  const list = modalItem.files || [];
+  wrap.innerHTML = list.length ? '' : `<span class="muted">Файлов пока нет.</span>`;
+  list.forEach((f) => {
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    row.innerHTML = `
+      <span class="file-row-icon">${icon(fileIcon(f.filename))}</span>
+      <a href="/api/item-files/${f.id}" target="_blank" rel="noopener" class="file-row-name" title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</a>
+      <span class="file-row-size">${fmtBytes(f.size)}</span>
+      <button class="remove-row-btn" type="button" title="Удалить файл">${icon('close')}</button>
+    `;
+    row.querySelector('.remove-row-btn').addEventListener('click', async () => {
+      if (!confirm(`Удалить файл «${f.filename}»?`)) return;
+      try {
+        await api.del(`/api/item-files/${f.id}`);
+        modalItem.files = (modalItem.files || []).filter((x) => x.id !== f.id);
+        renderFilesEditor();
+        toast('Файл удалён');
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+    wrap.appendChild(row);
+  });
+}
+
+async function uploadItemDocFile(file) {
+  const label = document.querySelector('#item-modal-body .add-row-btn.file-btn');
+  const prevText = label ? label.firstChild.textContent : '';
+  if (label) label.firstChild.textContent = 'Загрузка…';
+  try {
+    const buf = await file.arrayBuffer();
+    const res = await fetch(`/api/items/${modalItem.id}/files`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+        'X-Filename': encodeURIComponent(file.name),
+      },
+      body: buf,
+    });
+    if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Не удалось загрузить файл'); }
+    const meta = await res.json();
+    modalItem.files = [...(modalItem.files || []), meta];
+    renderFilesEditor();
+    toast('Файл добавлен', 'success');
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    if (label) label.firstChild.textContent = prevText;
+  }
 }
 
 function syncFormIntoModalItem() {

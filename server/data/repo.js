@@ -244,6 +244,36 @@ async function listActivity(limit = 100) {
   return driver.listActivity(limit);
 }
 
+// ---------- Item files (документация: спецификации, сертификаты и т.п.) ----------
+const MAX_ITEM_FILE_BYTES = 15 * 1024 * 1024; // 15 МБ — как и у файлов ТЗ
+
+async function listItemFiles(itemId) {
+  return driver.listItemFiles(itemId);
+}
+async function addItemFile(itemId, { filename, mimeType, buffer }) {
+  if (buffer.length > MAX_ITEM_FILE_BYTES) {
+    throw new Error(`Файл слишком большой (${(buffer.length / 1024 / 1024).toFixed(1)} МБ) — максимум 15 МБ`);
+  }
+  const file = {
+    id: nanoid(10),
+    itemId,
+    filename: filename || 'файл',
+    mimeType: mimeType || 'application/octet-stream',
+    size: buffer.length,
+    dataBase64: buffer.toString('base64'),
+    createdAt: now(),
+  };
+  await driver.insertItemFile(file);
+  const { dataBase64, ...meta } = file;
+  return meta;
+}
+async function getItemFile(fileId) {
+  return driver.getItemFileById(fileId);
+}
+async function deleteItemFile(fileId) {
+  await driver.deleteItemFileRow(fileId);
+}
+
 module.exports = {
   getSettings,
   updateSettings,
@@ -260,4 +290,8 @@ module.exports = {
   applyParsedPrice,
   listActivity,
   computePricing,
+  listItemFiles,
+  addItemFile,
+  getItemFile,
+  deleteItemFile,
 };
