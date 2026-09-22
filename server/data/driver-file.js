@@ -6,6 +6,7 @@
 const { Collection } = require('./store-file');
 
 const categories = new Collection('categories', []);
+const categoryGroups = new Collection('categoryGroups', []);
 const items = new Collection('items', []);
 const itemFiles = new Collection('itemFiles', []);
 const settingsCol = new Collection('settings', null);
@@ -42,6 +43,26 @@ async function updateCategoryRow(id, patch) {
 }
 async function deleteCategoryRow(id) {
   categories.set(categories.all().filter((c) => c.id !== id));
+}
+
+// ---------- category groups (папки в сайдбаре) ----------
+async function listCategoryGroups() {
+  return categoryGroups.all();
+}
+async function insertCategoryGroup(group) {
+  categoryGroups.set([...categoryGroups.all(), group]);
+  return group;
+}
+async function updateCategoryGroupRow(id, patch) {
+  const list = categoryGroups.all();
+  const idx = list.findIndex((g) => g.id === id);
+  if (idx === -1) return null;
+  list[idx] = { ...list[idx], ...patch, id };
+  categoryGroups.set(list);
+  return list[idx];
+}
+async function deleteCategoryGroupRow(id) {
+  categoryGroups.set(categoryGroups.all().filter((g) => g.id !== id));
 }
 
 // Число прикреплённых файлов считаем на лету из коллекции itemFiles — чтобы
@@ -194,6 +215,7 @@ async function deleteProposalFileRow(id) {
 module.exports = {
   getSettings, setSettings,
   listCategories, insertCategory, updateCategoryRow, deleteCategoryRow,
+  listCategoryGroups, insertCategoryGroup, updateCategoryGroupRow, deleteCategoryGroupRow,
   listItems, getItemById, insertItem, updateItemRow, deleteItemRow,
   listItemFiles, getItemFileById, insertItemFile, deleteItemFileRow,
   listActivity, insertActivity,

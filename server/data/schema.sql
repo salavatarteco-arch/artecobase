@@ -15,6 +15,16 @@ CREATE TABLE IF NOT EXISTS settings (
   CONSTRAINT settings_single_row CHECK (id = 1)
 );
 
+-- Папки в сайдбаре, группирующие несколько категорий (например "Петли" →
+-- "Петли Blum", "Петли Hettich"). Сами товары лежат в категориях, папка —
+-- чисто организационная обёртка.
+CREATE TABLE IF NOT EXISTS category_groups (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS categories (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -22,6 +32,7 @@ CREATE TABLE IF NOT EXISTS categories (
   unit TEXT NOT NULL DEFAULT 'шт',
   icon TEXT DEFAULT '',
   sort_order INT NOT NULL DEFAULT 0,
+  group_id TEXT REFERENCES category_groups(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -75,6 +86,7 @@ ALTER TABLE settings ADD COLUMN IF NOT EXISTS services_currency_symbol TEXT NOT 
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS services_seeded BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS services_notice TEXT NOT NULL DEFAULT '';
 ALTER TABLE items ADD COLUMN IF NOT EXISTS photos JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS group_id TEXT REFERENCES category_groups(id) ON DELETE SET NULL;
 
 -- ===================================================================
 -- Прайс-лист услуг для монтажников + генератор ТЗ (технических заданий по монтажу, не

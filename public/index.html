@@ -24,7 +24,10 @@
       <button class="btn btn-ghost btn-icon sidebar-close-btn" id="btn-close-sidebar" aria-label="Закрыть меню"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
     </div>
 
-    <button class="btn btn-block" id="btn-add-category"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4V20"/><path d="M4 12H20"/></svg> Категория</button>
+    <div class="sidebar-add-row">
+      <button class="btn" id="btn-add-category"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4V20"/><path d="M4 12H20"/></svg> Категория</button>
+      <button class="btn btn-ghost" id="btn-add-group" title="Новая папка"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7A1 1 0 0 1 4 6H9L11 8H20A1 1 0 0 1 21 9V17A1 1 0 0 1 20 18H4A1 1 0 0 1 3 17Z"/><path d="M12 11V15"/><path d="M10 13H14"/></svg> Папка</button>
+    </div>
 
     <nav class="category-list" id="category-list"><!-- rendered by JS --></nav>
 
@@ -130,6 +133,13 @@
         <span>Единица измерения</span>
         <input type="text" id="cat-unit" placeholder="шт / м² / м / компл." />
       </label>
+      <label class="field">
+        <span>Папка</span>
+        <div class="field-inline">
+          <select id="cat-group"><option value="">Без папки</option></select>
+          <button type="button" class="btn btn-ghost btn-icon" id="btn-cat-new-group" title="Новая папка"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4V20"/><path d="M4 12H20"/></svg></button>
+        </div>
+      </label>
       <p class="hint">Значок категории подставится автоматически по названию.</p>
     </div>
     <div class="modal-footer">
@@ -137,6 +147,29 @@
       <div class="spacer"></div>
       <button class="btn btn-ghost" data-close-modal="category-modal">Отмена</button>
       <button class="btn btn-primary" id="btn-save-category">Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category group (folder) modal -->
+<div class="modal-backdrop" id="group-modal-backdrop" hidden>
+  <div class="modal modal-sm" id="group-modal">
+    <div class="modal-header">
+      <h2 id="group-modal-title">Новая папка</h2>
+      <button class="modal-close" data-close-modal="group-modal"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <label class="field">
+        <span>Название</span>
+        <input type="text" id="group-name" placeholder="Например: Петли" />
+      </label>
+      <p class="hint">Папка группирует несколько категорий в сайдбаре — например «Петли» → «Петли Blum», «Петли Hettich».</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete-group" hidden>Удалить</button>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" data-close-modal="group-modal">Отмена</button>
+      <button class="btn btn-primary" id="btn-save-group">Создать</button>
     </div>
   </div>
 </div>

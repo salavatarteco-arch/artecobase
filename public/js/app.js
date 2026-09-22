@@ -28,6 +28,8 @@ const ICONS = {
   tag: '<path d="M3 11 11 3H15L21 9V13L13 21 3 11Z"/><circle cx="9.5" cy="8.5" r="1.3"/>',
   stack: '<path d="M12 3 21 8 12 13 3 8Z"/><path d="M3 13 12 18 21 13"/>',
   paperclip: '<path d="M7 12.5 15.5 4A3.5 3.5 0 1 1 20.5 9L11 18.5A5.5 5.5 0 1 1 3.2 10.7L12 2"/>',
+  folder: '<path d="M3 7A1 1 0 0 1 4 6H9L11 8H20A1 1 0 0 1 21 9V17A1 1 0 0 1 20 18H4A1 1 0 0 1 3 17Z"/>',
+  chevron: '<path d="M9 6 15 12 9 18"/>',
 };
 function icon(name, cls = '') {
   return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.box}</svg>`;
@@ -47,6 +49,8 @@ function guessCategoryIcon(name) {
 // ---------------------------------------------------------------- state ---
 const state = {
   categories: [],
+  groups: [], // папки, группирующие категории в сайдбаре
+  collapsedGroups: new Set(),
   items: [],
   settings: null,
   currentCategoryId: null,
@@ -136,9 +140,12 @@ function debounce(fn, ms) {
 
 // ------------------------------------------------------------------ load ---
 async function loadAll() {
-  const [settings, categories] = await Promise.all([api.get('/api/settings'), api.get('/api/categories')]);
+  const [settings, categories, groups] = await Promise.all([
+    api.get('/api/settings'), api.get('/api/categories'), api.get('/api/category-groups'),
+  ]);
   state.settings = settings;
   state.categories = categories.sort((a, b) => a.sortOrder - b.sortOrder);
+  state.groups = groups.sort((a, b) => a.sortOrder - b.sortOrder);
   if (!state.currentCategoryId && categories.length) state.currentCategoryId = categories[0].id;
   await loadItems();
   renderSidebar();
@@ -152,30 +159,74 @@ async function loadItems() {
 }
 
 // --------------------------------------------------------------- sidebar ---
+function buildCategoryItemEl(cat) {
+  const el = document.createElement('div');
+  el.className = 'category-item' + (cat.id === state.currentCategoryId ? ' active' : '');
+  el.dataset.catId = cat.id;
+  el.innerHTML = `
+    <span class="cat-icon">${icon(guessCategoryIcon(cat.name))}</span>
+    <span class="cat-name">${escapeHtml(cat.name)}</span>
+    <span class="cat-edit" data-edit-cat="${cat.id}" title="Настройки категории">${icon('edit')}</span>
+  `;
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-edit-cat]')) return;
+    state.currentCategoryId = cat.id;
+    state.search = '';
+    document.getElementById('search-input').value = '';
+    closeSidebar();
+    loadItems().then(() => { renderSidebar(); renderTopbar(); renderTable(); });
+  });
+  el.querySelector('[data-edit-cat]').addEventListener('click', () => openCategoryEdit(cat.id));
+  return el;
+}
+
+// Категории группируются по папкам (state.groups) — папка не выбирается
+// как категория, а просто сворачивает/разворачивает свой список внутри.
 function renderSidebar() {
   const list = document.getElementById('category-list');
   list.innerHTML = '';
+
+  const byGroup = new Map(state.groups.map((g) => [g.id, []]));
+  const ungrouped = [];
   for (const cat of state.categories) {
-    const el = document.createElement('div');
-    el.className = 'category-item' + (cat.id === state.currentCategoryId ? ' active' : '');
-    el.innerHTML = `
-      <span class="cat-icon">${icon(guessCategoryIcon(cat.name))}</span>
-      <span class="cat-name">${escapeHtml(cat.name)}</span>
-      <span class="cat-edit" data-edit-cat="${cat.id}" title="Настройки категории">${icon('edit')}</span>
-    `;
-    el.addEventListener('click', (e) => {
-      if (e.target.closest('[data-edit-cat]')) return;
-      state.currentCategoryId = cat.id;
-      state.search = '';
-      document.getElementById('search-input').value = '';
-      closeSidebar();
-      loadItems().then(() => { renderSidebar(); renderTopbar(); renderTable(); });
-    });
-    list.appendChild(el);
+    if (cat.groupId && byGroup.has(cat.groupId)) byGroup.get(cat.groupId).push(cat);
+    else ungrouped.push(cat);
   }
-  list.querySelectorAll('[data-edit-cat]').forEach((btn) => {
-    btn.addEventListener('click', () => openCategoryEdit(btn.dataset.editCat));
-  });
+
+  for (const group of state.groups) {
+    const cats = byGroup.get(group.id) || [];
+    const collapsed = state.collapsedGroups.has(group.id);
+    const groupEl = document.createElement('div');
+    groupEl.className = 'category-group';
+    const header = document.createElement('div');
+    header.className = 'category-group-header' + (collapsed ? ' collapsed' : '');
+    header.dataset.toggleGroup = group.id;
+    header.innerHTML = `
+      <span class="group-chevron">${icon('chevron')}</span>
+      <span class="cat-icon">${icon('folder')}</span>
+      <span class="cat-name">${escapeHtml(group.name)}</span>
+      <span class="cat-edit" data-edit-group="${group.id}" title="Настройки папки">${icon('edit')}</span>
+    `;
+    header.addEventListener('click', (e) => {
+      if (e.target.closest('[data-edit-group]')) return;
+      if (state.collapsedGroups.has(group.id)) state.collapsedGroups.delete(group.id);
+      else state.collapsedGroups.add(group.id);
+      renderSidebar();
+    });
+    header.querySelector('[data-edit-group]').addEventListener('click', () => openGroupEdit(group.id));
+    groupEl.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'category-group-body';
+    body.hidden = collapsed;
+    for (const cat of cats) body.appendChild(buildCategoryItemEl(cat));
+    groupEl.appendChild(body);
+
+    list.appendChild(groupEl);
+  }
+
+  for (const cat of ungrouped) list.appendChild(buildCategoryItemEl(cat));
+
   // счётчики позиций проставим асинхронно, не блокируя рендер
   countItemsPerCategory();
 }
@@ -184,8 +235,8 @@ async function countItemsPerCategory() {
   const all = await api.get('/api/items');
   const counts = {};
   for (const it of all) counts[it.categoryId] = (counts[it.categoryId] || 0) + 1;
-  document.querySelectorAll('.category-item').forEach((el, idx) => {
-    const cat = state.categories[idx];
+  document.querySelectorAll('.category-item').forEach((el) => {
+    const cat = state.categories.find((c) => c.id === el.dataset.catId);
     if (!cat) return;
     let badge = el.querySelector('.cat-count');
     const n = counts[cat.id] || 0;
@@ -195,6 +246,19 @@ async function countItemsPerCategory() {
       el.insertBefore(badge, el.querySelector('.cat-edit'));
     }
     badge.textContent = n;
+  });
+  document.querySelectorAll('.category-group-header').forEach((el) => {
+    const groupId = el.dataset.toggleGroup;
+    const total = state.categories
+      .filter((c) => c.groupId === groupId)
+      .reduce((sum, c) => sum + (counts[c.id] || 0), 0);
+    let badge = el.querySelector('.cat-count');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'cat-count';
+      el.insertBefore(badge, el.querySelector('.cat-edit'));
+    }
+    badge.textContent = total;
   });
 }
 
@@ -542,10 +606,18 @@ document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
 });
 
 // ---- category modal ----
+function renderGroupSelectOptions(selectedId) {
+  const select = document.getElementById('cat-group');
+  select.innerHTML = '<option value="">Без папки</option>'
+    + state.groups.map((g) => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+  select.value = selectedId || '';
+}
+
 function openCategoryCreate() {
   document.getElementById('cat-name').value = '';
   document.getElementById('cat-pricing-mode').value = 'sheet';
   document.getElementById('cat-unit').value = 'м²';
+  renderGroupSelectOptions('');
   document.querySelector('#category-modal .modal-header h2').textContent = 'Новая категория';
   document.getElementById('btn-save-category').textContent = 'Создать';
   document.getElementById('btn-save-category').onclick = saveNewCategory;
@@ -559,6 +631,7 @@ function openCategoryEdit(id) {
   document.getElementById('cat-name').value = cat.name;
   document.getElementById('cat-pricing-mode').value = cat.pricingMode;
   document.getElementById('cat-unit').value = cat.unit;
+  renderGroupSelectOptions(cat.groupId);
   document.querySelector('#category-modal .modal-header h2').textContent = 'Категория';
   document.getElementById('btn-save-category').textContent = 'Сохранить';
   document.getElementById('btn-save-category').onclick = async () => {
@@ -592,7 +665,61 @@ function readCategoryForm() {
     name: document.getElementById('cat-name').value.trim(),
     pricingMode: document.getElementById('cat-pricing-mode').value,
     unit: document.getElementById('cat-unit').value.trim() || 'шт',
+    groupId: document.getElementById('cat-group').value || null,
   };
+}
+
+document.getElementById('btn-cat-new-group').addEventListener('click', () => {
+  openGroupCreate((group) => renderGroupSelectOptions(group.id));
+});
+
+// ---- group (folder) modal ----
+function openGroupCreate(onCreated) {
+  document.getElementById('group-name').value = '';
+  document.querySelector('#group-modal .modal-header h2').textContent = 'Новая папка';
+  document.getElementById('btn-save-group').textContent = 'Создать';
+  document.getElementById('btn-save-group').onclick = async () => {
+    const name = document.getElementById('group-name').value.trim();
+    if (!name) { toast('Укажите название папки', 'error'); return; }
+    const group = await api.post('/api/category-groups', { name });
+    state.groups = [...state.groups, group];
+    closeModal('group-modal');
+    renderSidebar();
+    toast('Папка создана', 'success');
+    if (onCreated) onCreated(group);
+  };
+  document.getElementById('btn-delete-group').hidden = true;
+  openModal('group-modal');
+}
+
+function openGroupEdit(id) {
+  const group = state.groups.find((g) => g.id === id);
+  if (!group) return;
+  document.getElementById('group-name').value = group.name;
+  document.querySelector('#group-modal .modal-header h2').textContent = 'Папка';
+  document.getElementById('btn-save-group').textContent = 'Сохранить';
+  document.getElementById('btn-save-group').onclick = async () => {
+    const name = document.getElementById('group-name').value.trim();
+    if (!name) { toast('Укажите название папки', 'error'); return; }
+    await api.put(`/api/category-groups/${id}`, { name });
+    closeModal('group-modal');
+    await loadAll();
+    toast('Папка обновлена', 'success');
+  };
+  const delBtn = document.getElementById('btn-delete-group');
+  delBtn.hidden = false;
+  delBtn.onclick = async () => {
+    const inGroup = state.categories.filter((c) => c.groupId === id).length;
+    const warn = inGroup
+      ? `Удалить папку «${group.name}»? ${inGroup} категорий из неё останутся, просто без папки.`
+      : `Удалить папку «${group.name}»?`;
+    if (!confirm(warn)) return;
+    await api.del(`/api/category-groups/${id}`);
+    closeModal('group-modal');
+    await loadAll();
+    toast('Папка удалена');
+  };
+  openModal('group-modal');
 }
 
 async function saveNewCategory() {
@@ -1327,6 +1454,7 @@ document.getElementById('sidebar-backdrop').addEventListener('click', closeSideb
 
 // ------------------------------------------------------------- top-level ---
 document.getElementById('btn-add-category').addEventListener('click', openCategoryCreate);
+document.getElementById('btn-add-group').addEventListener('click', () => openGroupCreate());
 document.getElementById('btn-open-settings').addEventListener('click', openSettings);
 document.getElementById('btn-open-activity').addEventListener('click', openActivity);
 document.getElementById('btn-add-item').addEventListener('click', () => openItemModal(null));

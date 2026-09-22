@@ -154,9 +154,34 @@ button { font-family: inherit; }
 .category-item .cat-edit:hover { opacity: 1; background: var(--line); }
 .category-item .cat-edit .icon { width: 13px; height: 13px; }
 
-.sidebar-footer {
-  display: flex; flex-direction: column; gap: 6px;
-  padding-top: 12px; border-top: 1px solid var(--line);
+.sidebar-add-row { display: flex; gap: 6px; }
+.sidebar-add-row .btn { flex: 1; }
+
+/* ---------- Папки категорий (сворачиваемые группы в сайдбаре) ---------- */
+.category-group { display: flex; flex-direction: column; }
+.category-group-header {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 9px; border-radius: 8px;
+  color: var(--ink-soft); cursor: pointer;
+  font-size: 13.5px; font-weight: 700;
+}
+.category-group-header:hover { background: var(--surface); }
+.category-group-header .cat-icon { width: 18px; display: flex; align-items: center; justify-content: center; flex: none; color: var(--ink-faint); }
+.category-group-header .cat-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.category-group-header .cat-edit {
+  opacity: 0; padding: 3px; border-radius: 5px; display: flex; flex: none; color: var(--ink-soft);
+}
+.category-group-header:hover .cat-edit { opacity: .7; }
+.category-group-header .cat-edit:hover { opacity: 1; background: var(--line); }
+.category-group-header .cat-edit .icon { width: 13px; height: 13px; }
+.group-chevron { display: flex; flex: none; transition: transform .15s ease; }
+.group-chevron .icon { width: 13px; height: 13px; }
+.category-group-header.collapsed .group-chevron { transform: rotate(0deg); }
+.category-group-header:not(.collapsed) .group-chevron { transform: rotate(90deg); }
+.category-group-body {
+  display: flex; flex-direction: column; gap: 2px;
+  margin: 2px 0 4px 22px; padding-left: 9px;
+  border-left: 1px solid var(--line);
 }
 
 .sidebar-backdrop { display: none; }
@@ -486,6 +511,9 @@ button { font-family: inherit; }
 .field .hint { font-weight: 400; text-transform: none; letter-spacing: normal; color: var(--ink-faint); font-size: 11.5px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.field-inline { display: flex; gap: 6px; align-items: center; }
+.field-inline select { flex: 1; }
+.field-inline .btn-icon { flex: none; border: 1px solid var(--line); }
 
 .photo-gallery { display: flex; flex-wrap: wrap; gap: 10px; }
 .photo-gallery-item {

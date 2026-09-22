@@ -28,8 +28,17 @@ function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 let schemaEnsured = null;
 function ensureSchema(client) {
   if (!schemaEnsured) {
-    schemaEnsured = client`ALTER TABLE items ADD COLUMN IF NOT EXISTS photos JSONB NOT NULL DEFAULT '[]'`
-      .catch((err) => { schemaEnsured = null; throw err; });
+    schemaEnsured = (async () => {
+      await client`ALTER TABLE items ADD COLUMN IF NOT EXISTS photos JSONB NOT NULL DEFAULT '[]'`;
+      await client`
+        CREATE TABLE IF NOT EXISTS category_groups (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          sort_order INT NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )`;
+      await client`ALTER TABLE categories ADD COLUMN IF NOT EXISTS group_id TEXT REFERENCES category_groups(id) ON DELETE SET NULL`;
+    })().catch((err) => { schemaEnsured = null; throw err; });
   }
   return schemaEnsured;
 }
@@ -56,8 +65,12 @@ function rowToCategory(r) {
     unit: r.unit,
     icon: r.icon || '',
     sortOrder: r.sort_order,
+    groupId: r.group_id || null,
     createdAt: r.created_at,
   };
+}
+function rowToCategoryGroup(r) {
+  return { id: r.id, name: r.name, sortOrder: r.sort_order, createdAt: r.created_at };
 }
 function rowToItem(r) {
   return {
@@ -196,8 +209,8 @@ async function listCategories() {
 }
 async function insertCategory(cat) {
   await db()`
-    INSERT INTO categories (id, name, pricing_mode, unit, icon, sort_order, created_at)
-    VALUES (${cat.id}, ${cat.name}, ${cat.pricingMode}, ${cat.unit}, ${cat.icon}, ${cat.sortOrder}, ${cat.createdAt})`;
+    INSERT INTO categories (id, name, pricing_mode, unit, icon, sort_order, group_id, created_at)
+    VALUES (${cat.id}, ${cat.name}, ${cat.pricingMode}, ${cat.unit}, ${cat.icon}, ${cat.sortOrder}, ${cat.groupId}, ${cat.createdAt})`;
   return cat;
 }
 async function updateCategoryRow(id, patch) {
@@ -206,12 +219,36 @@ async function updateCategoryRow(id, patch) {
   const merged = { ...rowToCategory(rows[0]), ...patch, id };
   await db()`
     UPDATE categories SET name = ${merged.name}, pricing_mode = ${merged.pricingMode},
-      unit = ${merged.unit}, icon = ${merged.icon}, sort_order = ${merged.sortOrder}
+      unit = ${merged.unit}, icon = ${merged.icon}, sort_order = ${merged.sortOrder}, group_id = ${merged.groupId}
     WHERE id = ${id}`;
   return merged;
 }
 async function deleteCategoryRow(id) {
   await db()`DELETE FROM categories WHERE id = ${id}`;
+}
+
+// ---------- category groups (папки в сайдбаре) ----------
+async function listCategoryGroups() {
+  const rows = await db()`SELECT * FROM category_groups ORDER BY sort_order ASC`;
+  return rows.map(rowToCategoryGroup);
+}
+async function insertCategoryGroup(group) {
+  await db()`
+    INSERT INTO category_groups (id, name, sort_order, created_at)
+    VALUES (${group.id}, ${group.name}, ${group.sortOrder}, ${group.createdAt})`;
+  return group;
+}
+async function updateCategoryGroupRow(id, patch) {
+  const rows = await db()`SELECT * FROM category_groups WHERE id = ${id}`;
+  if (!rows[0]) return null;
+  const merged = { ...rowToCategoryGroup(rows[0]), ...patch, id };
+  await db()`
+    UPDATE category_groups SET name = ${merged.name}, sort_order = ${merged.sortOrder}
+    WHERE id = ${id}`;
+  return merged;
+}
+async function deleteCategoryGroupRow(id) {
+  await db()`DELETE FROM category_groups WHERE id = ${id}`;
 }
 
 // ---------- items ----------
@@ -438,6 +475,7 @@ async function deleteProposalFileRow(id) {
 module.exports = {
   getSettings, setSettings,
   listCategories, insertCategory, updateCategoryRow, deleteCategoryRow,
+  listCategoryGroups, insertCategoryGroup, updateCategoryGroupRow, deleteCategoryGroupRow,
   listItems, getItemById, insertItem, updateItemRow, deleteItemRow,
   listItemFiles, getItemFileById, insertItemFile, deleteItemFileRow,
   listActivity, insertActivity,

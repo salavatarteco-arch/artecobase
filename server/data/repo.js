@@ -47,7 +47,7 @@ async function listCategories() {
   return driver.listCategories();
 }
 
-async function createCategory({ name, pricingMode = 'direct', unit = 'шт', icon = '', sortOrder }) {
+async function createCategory({ name, pricingMode = 'direct', unit = 'шт', icon = '', sortOrder, groupId = null }) {
   const list = await driver.listCategories();
   const cat = {
     id: nanoid(10),
@@ -56,6 +56,7 @@ async function createCategory({ name, pricingMode = 'direct', unit = 'шт', ico
     unit,
     icon,
     sortOrder: sortOrder ?? list.length,
+    groupId: groupId || null,
     createdAt: now(),
   };
   await driver.insertCategory(cat);
@@ -69,6 +70,31 @@ async function updateCategory(id, patch) {
 async function deleteCategory(id) {
   await driver.deleteCategoryRow(id);
   // Осиротевшие товары не удаляем, но помечаем — можно показать в "Без категории".
+}
+
+// ---------- Category groups (папки, объединяющие несколько категорий в сайдбаре) ----------
+async function listCategoryGroups() {
+  return driver.listCategoryGroups();
+}
+
+async function createCategoryGroup({ name, sortOrder }) {
+  const list = await driver.listCategoryGroups();
+  const group = { id: nanoid(10), name, sortOrder: sortOrder ?? list.length, createdAt: now() };
+  await driver.insertCategoryGroup(group);
+  return group;
+}
+
+async function updateCategoryGroup(id, patch) {
+  return driver.updateCategoryGroupRow(id, patch);
+}
+
+async function deleteCategoryGroup(id) {
+  // Категории внутри папки не удаляем — просто "вынимаем" их из папки.
+  const categories = await driver.listCategories();
+  for (const cat of categories) {
+    if (cat.groupId === id) await driver.updateCategoryRow(cat.id, { groupId: null });
+  }
+  await driver.deleteCategoryGroupRow(id);
 }
 
 // ---------- Pricing helpers (чистые функции, без обращения к хранилищу) ----------
@@ -302,6 +328,10 @@ module.exports = {
   createCategory,
   updateCategory,
   deleteCategory,
+  listCategoryGroups,
+  createCategoryGroup,
+  updateCategoryGroup,
+  deleteCategoryGroup,
   listItems,
   getItem,
   createItem,

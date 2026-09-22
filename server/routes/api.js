@@ -34,6 +34,22 @@ router.delete('/categories/:id', h(async (req, res) => {
   res.status(204).end();
 }));
 
+// ---------- Category groups (папки в сайдбаре) ----------
+router.get('/category-groups', h(async (req, res) => res.json(await repo.listCategoryGroups())));
+router.post('/category-groups', h(async (req, res) => {
+  if (!req.body || !req.body.name) return res.status(400).json({ error: 'Укажите название папки' });
+  res.status(201).json(await repo.createCategoryGroup(req.body));
+}));
+router.put('/category-groups/:id', h(async (req, res) => {
+  const updated = await repo.updateCategoryGroup(req.params.id, req.body || {});
+  if (!updated) return res.status(404).json({ error: 'Папка не найдена' });
+  res.json(updated);
+}));
+router.delete('/category-groups/:id', h(async (req, res) => {
+  await repo.deleteCategoryGroup(req.params.id);
+  res.status(204).end();
+}));
+
 // ---------- Items ----------
 router.get('/items', h(async (req, res) => {
   res.json(await repo.listItems({ categoryId: req.query.categoryId || undefined }));
