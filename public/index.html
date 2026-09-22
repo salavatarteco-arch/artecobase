@@ -168,6 +168,27 @@
   </div>
 </div>
 
+<!-- Files modal — быстрый доступ к документации позиции прямо из таблицы -->
+<div class="modal-backdrop" id="item-files-modal-backdrop" hidden>
+  <div class="modal modal-sm" id="item-files-modal">
+    <div class="modal-header">
+      <h2 id="item-files-modal-title">Файлы позиции</h2>
+      <button class="modal-close" data-close-modal="item-files-modal"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5 19 19"/><path d="M19 5 5 19"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="section-title">
+        <span>Документация</span>
+        <label class="btn btn-ghost add-row-btn file-btn">+ файл<input type="file" id="quick-doc-file" hidden /></label>
+      </div>
+      <div class="files-editor" id="quick-files-editor"></div>
+    </div>
+    <div class="modal-footer">
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" data-close-modal="item-files-modal">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-stack" id="toast-stack"></div>
 
 <script src="/js/app.js" type="module"></script>

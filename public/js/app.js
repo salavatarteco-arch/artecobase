@@ -27,6 +27,7 @@ const ICONS = {
   trend: '<path d="M4 16 10 10 14 13 20 6"/><path d="M20 6H15"/><path d="M20 6V11"/>',
   tag: '<path d="M3 11 11 3H15L21 9V13L13 21 3 11Z"/><circle cx="9.5" cy="8.5" r="1.3"/>',
   stack: '<path d="M12 3 21 8 12 13 3 8Z"/><path d="M3 13 12 18 21 13"/>',
+  paperclip: '<path d="M7 12.5 15.5 4A3.5 3.5 0 1 1 20.5 9L11 18.5A5.5 5.5 0 1 1 3.2 10.7L12 2"/>',
 };
 function icon(name, cls = '') {
   return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.box}</svg>`;
@@ -402,6 +403,7 @@ function rowDirectHtml(it, symbol) {
 function rowActionsHtml(id) {
   return `
     <div class="row-actions">
+      <button class="btn btn-icon btn-ghost" data-files-item="${id}" title="Файлы документации">${icon('paperclip')}</button>
       <button class="btn btn-icon btn-ghost" data-edit-item="${id}" title="Открыть карточку">${icon('edit')}</button>
       <button class="btn btn-icon btn-ghost" data-dup-item="${id}" title="Дублировать">${icon('copy')}</button>
       <button class="btn btn-icon btn-ghost" data-del-item="${id}" title="Удалить">${icon('trash')}</button>
@@ -426,6 +428,7 @@ function bindRowEvents() {
     el.dataset.original = el.textContent;
     el.addEventListener('blur', onEditableBlur);
   });
+  document.querySelectorAll('[data-files-item]').forEach((b) => b.addEventListener('click', () => openItemFilesModal(b.dataset.filesItem)));
   document.querySelectorAll('[data-edit-item]').forEach((b) => b.addEventListener('click', () => openItemModal(b.dataset.editItem)));
   document.querySelectorAll('[data-dup-item]').forEach((b) => b.addEventListener('click', () => duplicateItem(b.dataset.dupItem)));
   document.querySelectorAll('[data-del-item]').forEach((b) => b.addEventListener('click', () => deleteItem(b.dataset.delItem)));
@@ -822,7 +825,11 @@ function renderItemModalBody() {
   if (docFileInput) docFileInput.addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    uploadItemDocFile(file);
+    const label = document.querySelector('#item-modal-body .add-row-btn.file-btn');
+    uploadFileTo(modalItem.id, file, (meta) => {
+      modalItem.files = [...(modalItem.files || []), meta];
+      renderFilesEditor();
+    }, label);
     e.target.value = '';
   });
 
@@ -936,6 +943,35 @@ function fileIcon(filename) {
   return 'box';
 }
 
+// Строит одну строку файла — переиспользуется и в карточке позиции, и в
+// быстром окне "Файлы" прямо из таблицы.
+function buildFileRow(f, onDeleted) {
+  const row = document.createElement('div');
+  row.className = 'file-row';
+  row.innerHTML = `
+    <span class="file-row-icon">${icon(fileIcon(f.filename))}</span>
+    <span class="file-row-name" title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</span>
+    <span class="file-row-size">${fmtBytes(f.size)}</span>
+    <a class="file-dl-btn" href="/api/item-files/${f.id}" download="${escapeHtml(f.filename)}" rel="noopener" title="Скачать файл">${icon('download')}</a>
+    <button class="remove-row-btn" type="button" title="Удалить файл">${icon('close')}</button>
+  `;
+  row.querySelector('.remove-row-btn').addEventListener('click', async () => {
+    if (!confirm(`Удалить файл «${f.filename}»?`)) return;
+    try {
+      await api.del(`/api/item-files/${f.id}`);
+      onDeleted(f.id);
+      toast('Файл удалён');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  });
+  return row;
+}
+function renderFileList(container, files, emptyMessage, onDeleted) {
+  container.innerHTML = files.length ? '' : `<span class="muted">${emptyMessage}</span>`;
+  files.forEach((f) => container.appendChild(buildFileRow(f, onDeleted)));
+}
+
 function renderFilesEditor() {
   const wrap = document.getElementById('files-editor');
   if (!wrap) return;
@@ -943,40 +979,18 @@ function renderFilesEditor() {
     wrap.innerHTML = `<span class="muted">Сохраните позицию, чтобы прикреплять файлы документации.</span>`;
     return;
   }
-  const list = modalItem.files || [];
-  wrap.innerHTML = list.length ? '' : `<span class="muted">Файлов пока нет.</span>`;
-  list.forEach((f) => {
-    const row = document.createElement('div');
-    row.className = 'file-row';
-    row.innerHTML = `
-      <span class="file-row-icon">${icon(fileIcon(f.filename))}</span>
-      <span class="file-row-name" title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</span>
-      <span class="file-row-size">${fmtBytes(f.size)}</span>
-      <a class="file-dl-btn" href="/api/item-files/${f.id}" download="${escapeHtml(f.filename)}" rel="noopener" title="Скачать файл">${icon('download')}</a>
-      <button class="remove-row-btn" type="button" title="Удалить файл">${icon('close')}</button>
-    `;
-    row.querySelector('.remove-row-btn').addEventListener('click', async () => {
-      if (!confirm(`Удалить файл «${f.filename}»?`)) return;
-      try {
-        await api.del(`/api/item-files/${f.id}`);
-        modalItem.files = (modalItem.files || []).filter((x) => x.id !== f.id);
-        renderFilesEditor();
-        toast('Файл удалён');
-      } catch (err) {
-        toast(err.message, 'error');
-      }
-    });
-    wrap.appendChild(row);
+  renderFileList(wrap, modalItem.files || [], 'Файлов пока нет.', (fileId) => {
+    modalItem.files = (modalItem.files || []).filter((x) => x.id !== fileId);
+    renderFilesEditor();
   });
 }
 
-async function uploadItemDocFile(file) {
-  const label = document.querySelector('#item-modal-body .add-row-btn.file-btn');
-  const prevText = label ? label.firstChild.textContent : '';
-  if (label) label.firstChild.textContent = 'Загрузка…';
+async function uploadFileTo(itemId, file, onUploaded, labelEl) {
+  const prevText = labelEl ? labelEl.firstChild.textContent : '';
+  if (labelEl) labelEl.firstChild.textContent = 'Загрузка…';
   try {
     const buf = await file.arrayBuffer();
-    const res = await fetch(`/api/items/${modalItem.id}/files`, {
+    const res = await fetch(`/api/items/${itemId}/files`, {
       method: 'POST',
       headers: {
         'Content-Type': file.type || 'application/octet-stream',
@@ -986,15 +1000,50 @@ async function uploadItemDocFile(file) {
     });
     if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Не удалось загрузить файл'); }
     const meta = await res.json();
-    modalItem.files = [...(modalItem.files || []), meta];
-    renderFilesEditor();
+    onUploaded(meta);
     toast('Файл добавлен', 'success');
   } catch (err) {
     toast(err.message, 'error');
   } finally {
-    if (label) label.firstChild.textContent = prevText;
+    if (labelEl) labelEl.firstChild.textContent = prevText;
   }
 }
+
+// ---- быстрое окно "Файлы" прямо из строки таблицы (без открытия карточки) ----
+let quickFilesItemId = null;
+let quickFilesList = [];
+
+async function openItemFilesModal(itemId) {
+  quickFilesItemId = itemId;
+  quickFilesList = [];
+  const item = state.items.find((i) => i.id === itemId);
+  document.getElementById('item-files-modal-title').textContent = item ? `Файлы — ${item.name}` : 'Файлы позиции';
+  document.getElementById('quick-files-editor').innerHTML = `<span class="muted">Загрузка…</span>`;
+  openModal('item-files-modal');
+  try {
+    quickFilesList = await api.get(`/api/items/${itemId}/files`);
+    renderQuickFilesEditor();
+  } catch (err) {
+    document.getElementById('quick-files-editor').innerHTML = `<span class="muted">Не удалось загрузить список файлов.</span>`;
+  }
+}
+function renderQuickFilesEditor() {
+  const wrap = document.getElementById('quick-files-editor');
+  renderFileList(wrap, quickFilesList, 'Файлов пока нет.', (fileId) => {
+    quickFilesList = quickFilesList.filter((x) => x.id !== fileId);
+    renderQuickFilesEditor();
+  });
+}
+document.getElementById('quick-doc-file').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file || !quickFilesItemId) return;
+  const label = document.querySelector('#item-files-modal .add-row-btn.file-btn');
+  uploadFileTo(quickFilesItemId, file, (meta) => {
+    quickFilesList = [...quickFilesList, meta];
+    renderQuickFilesEditor();
+  }, label);
+  e.target.value = '';
+});
 
 function syncFormIntoModalItem() {
   const val = (id) => document.getElementById(id)?.value;
