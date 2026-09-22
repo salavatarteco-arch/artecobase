@@ -952,7 +952,7 @@ function renderFilesEditor() {
     row.className = 'file-row';
     row.innerHTML = `
       <span class="file-row-icon">${icon(fileIcon(f.filename))}</span>
-      <a href="/api/item-files/${f.id}" target="_blank" rel="noopener" class="file-row-name" title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</a>
+      <a href="/api/item-files/${f.id}" download="${escapeHtml(f.filename)}" rel="noopener" class="file-row-name" title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</a>
       <span class="file-row-size">${fmtBytes(f.size)}</span>
       <button class="remove-row-btn" type="button" title="Удалить файл">${icon('close')}</button>
     `;

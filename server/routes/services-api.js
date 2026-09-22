@@ -101,7 +101,9 @@ router.get('/proposal-files/:fileId', h(async (req, res) => {
   if (!file) return res.status(404).json({ error: 'Файл не найден' });
   const buf = Buffer.from(file.dataBase64, 'base64');
   res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
-  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.filename)}"`);
+  // attachment, не inline — иначе браузер для PDF/картинок пытается открыть файл
+  // во встроенном просмотрщике вместо того, чтобы предложить сохранить его.
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.filename)}"`);
   res.send(buf);
 }));
 router.delete('/proposal-files/:fileId', h(async (req, res) => {
@@ -126,7 +128,9 @@ router.get('/public/proposals/:token/files/:fileId', h(async (req, res) => {
   if (!file) return res.status(404).json({ error: 'Файл не найден' });
   const buf = Buffer.from(file.dataBase64, 'base64');
   res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
-  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.filename)}"`);
+  // attachment, не inline — иначе браузер для PDF/картинок пытается открыть файл
+  // во встроенном просмотрщике вместо того, чтобы предложить сохранить его.
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.filename)}"`);
   res.send(buf);
 }));
 
